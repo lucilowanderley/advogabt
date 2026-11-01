@@ -9,6 +9,7 @@ use App\Http\Controllers\FinancialEntryController;
 use App\Http\Controllers\LegalCaseController;
 use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\UserController;
@@ -45,6 +46,9 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/modelos/{template}/gerar', [DocumentTemplateController::class, 'generate'])->name('templates.generate');
     Route::resource('modelos', DocumentTemplateController::class)->parameters(['modelos' => 'template'])->names('templates');
+
+    Route::get('/relatorios', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/relatorios/exportar', [ReportController::class, 'export'])->name('reports.export');
 
     Route::get('/perfil', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/perfil', [ProfileController::class, 'update'])->name('profile.update');

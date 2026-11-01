@@ -11,6 +11,11 @@ class Format
         return 'R$ '.number_format((float) $value, 2, ',', '.');
     }
 
+    public static function percent(int|float|null $value, int $decimals = 1): string
+    {
+        return $value === null ? '—' : number_format((float) $value, $decimals, ',', '.').'%';
+    }
+
     /** Converte "1.234,56" ou "1234.56" em float. */
     public static function parseMoney(mixed $value): ?float
     {

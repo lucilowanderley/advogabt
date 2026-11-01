@@ -48,6 +48,15 @@
     el.addEventListener('change', function () { el.form.submit(); });
   });
 
+  // Relatórios: período personalizado mostra as datas; os demais aplicam na hora
+  document.querySelectorAll('[data-period-select]').forEach(function (sel) {
+    var range = sel.form.querySelector('[data-custom-range]');
+    sel.addEventListener('change', function () {
+      if (sel.value === 'personalizado') { if (range) range.style.display = ''; return; }
+      sel.form.submit();
+    });
+  });
+
   // Dia inteiro desativa horários
   var allDay = document.querySelector('[name="all_day"]');
   if (allDay) {

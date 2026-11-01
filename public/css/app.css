@@ -416,3 +416,23 @@ table.table { width: 100%; border-collapse: collapse; }
   body, .content { background: #fff !important; padding: 0 !important; }
   .doc-paper { box-shadow: none; padding: 0; max-width: none; }
 }
+
+/* ---------- Relatórios / BI ---------- */
+.hbars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.hbars .hbar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 10px; }
+.hbars .progress { margin-top: 5px; height: 8px; }
+.bars-single .bar { width: 60%; max-width: 30px; }
+.bars .val { font-size: 10.5px; color: var(--muted); min-height: 14px; }
+.bars-dense { gap: 4px; }
+.bars-dense .lbl { font-size: 9.5px; writing-mode: vertical-rl; transform: rotate(180deg); }
+.stat-value { font-size: 24px; font-weight: 700; }
+.cap { text-transform: capitalize; }
+.table tfoot th { padding: 10px 14px; border-top: 1px solid var(--border); }
+.print-only { display: none; }
+@media print {
+  .print-only { display: block; }
+  .card { break-inside: avoid; }
+  .grid-4 { grid-template-columns: repeat(4, 1fr) !important; }
+  .grid-main, .grid-wide, .grid-2 { grid-template-columns: 1fr 1fr !important; }
+}
+.table th.right { text-align: right; }

@@ -23,6 +23,7 @@
                 <a href="{{ route('finance.create', ['processo' => $case->id, 'tipo' => 'despesa']) }}"><x-icon name="arrow-down" /> Despesa (custas)</a>
             </div>
         </div>
+        <a class="btn" href="{{ route('assistant.index', ['processo' => $case->id]) }}"><x-icon name="sparkles" class="sm" /> Perguntar à IA</a>
         <a class="btn" href="{{ route('cases.edit', $case) }}"><x-icon name="edit" class="sm" /> Editar</a>
         <form method="post" action="{{ route('cases.destroy', $case) }}" data-confirm="Excluir este processo e todos os seus andamentos?">@csrf @method('delete')<button class="btn btn-danger"><x-icon name="trash" class="sm" /></button></form>
     </div>

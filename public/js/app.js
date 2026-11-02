@@ -159,4 +159,115 @@
       }).catch(function () {});
     });
   }
+
+  // ---------- Assistente IA ----------
+  var chatLog = document.querySelector('[data-chat-log]');
+  function scrollChat() { if (chatLog) chatLog.scrollTop = chatLog.scrollHeight; }
+  scrollChat();
+
+  function escapeHtml(t) { var d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+  // Atalhos preenchem a caixa de mensagem
+  document.querySelectorAll('[data-prompt]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var input = document.querySelector('[data-chat-input]');
+      if (!input) return;
+      input.value = btn.getAttribute('data-prompt');
+      input.focus();
+      var pos = input.value.indexOf('(');
+      if (pos >= 0) { input.selectionStart = pos; input.selectionEnd = input.value.indexOf(')', pos) + 1; }
+    });
+  });
+
+  // Copiar resposta
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-copy]');
+    if (!btn) return;
+    var raw = btn.closest('.msg-body').querySelector('[data-copy-raw]');
+    var text = raw ? raw.value : '';
+    var done = function () { var old = btn.innerHTML; btn.textContent = 'Copiado!'; setTimeout(function () { btn.innerHTML = old; }, 1500); };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+    } else {
+      var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch (err) {} ta.remove();
+    }
+  });
+
+  // Envio sem recarregar a página (com recarga normal como alternativa)
+  var chatForm = document.querySelector('[data-chat-form]');
+  if (chatForm && chatLog) {
+    var input = chatForm.querySelector('[data-chat-input]');
+    var sendBtn = chatForm.querySelector('[data-chat-send]');
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); chatForm.requestSubmit ? chatForm.requestSubmit() : chatForm.submit(); }
+    });
+    chatForm.addEventListener('submit', function (e) {
+      var text = input.value.trim();
+      if (!text || !window.fetch) return;
+      e.preventDefault();
+      var welcome = chatLog.querySelector('[data-chat-welcome]');
+      if (welcome) welcome.remove();
+      var end = chatLog.querySelector('#fim');
+      var userMsg = document.createElement('div');
+      userMsg.className = 'msg msg-user';
+      userMsg.innerHTML = '<div class="msg-bubble pre">' + escapeHtml(text) + '</div>';
+      var thinking = document.createElement('div');
+      thinking.className = 'msg msg-ai msg-thinking';
+      thinking.innerHTML = '<div class="msg-avatar">✦</div><div class="msg-body"><div class="msg-bubble"><span class="dots"><span></span><span></span><span></span></span> Pensando...</div></div>';
+      chatLog.insertBefore(userMsg, end);
+      chatLog.insertBefore(thinking, end);
+      scrollChat();
+      var data = new FormData(chatForm);
+      input.value = '';
+      sendBtn.disabled = true;
+      fetch(chatForm.action, { method: 'POST', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf }, body: data })
+        .then(function (r) {
+          if (r.status === 422) return r.json().then(function (j) { throw new Error((j && j.message) || 'Verifique a mensagem.'); });
+          if (r.status === 429) throw new Error('Muitas mensagens em pouco tempo. Aguarde um minuto.');
+          if (!r.ok) throw new Error('Erro ' + r.status + ' no servidor.');
+          return r.json();
+        })
+        .then(function (j) {
+          if (j.redirect) { window.location.href = j.redirect; return; }
+          thinking.outerHTML = j.html;
+          scrollChat();
+        })
+        .catch(function (err) {
+          thinking.remove();
+          input.value = text;
+          alert(err.message || 'Não foi possível enviar a mensagem.');
+        })
+        .then(function () { sendBtn.disabled = false; });
+    });
+  }
+
+  // Cadastro de provedor: ao trocar o tipo, ajusta modelos, URL e dicas
+  var driverSel = document.querySelector('[data-ai-driver]');
+  if (driverSel) {
+    var f = driverSel.form;
+    driverSel.addEventListener('change', function () {
+      var o = driverSel.selectedOptions[0];
+      var models = (o.getAttribute('data-models') || '').split(',').filter(Boolean);
+      f.querySelector('[data-ai-models]').innerHTML = models.map(function (m) { return '<option value="' + escapeHtml(m) + '"></option>'; }).join('');
+      var model = f.querySelector('[name="model"]');
+      model.value = o.getAttribute('data-default-model') || '';
+      var url = f.querySelector('[data-ai-base-url]');
+      url.placeholder = o.getAttribute('data-base-url') || 'https://.../v1';
+      var hint = o.getAttribute('data-hint');
+      f.querySelector('[data-ai-hint]').innerHTML = hint ? '✦ <span>' + escapeHtml(hint) + '</span>' : '';
+      var PR = { gratis: ['Grátis', 'green'], freemium: ['Grátis com limites', 'blue'], comercial: ['Comercial (pago)', 'orange'], depende: ['Grátis ou pago', ''] };
+      var pr = PR[o.getAttribute('data-pricing')] || ['', ''];
+      var badge = f.querySelector('[data-ai-pricing-badge]');
+      if (badge) { badge.textContent = pr[0]; badge.className = 'badge ' + pr[1]; }
+      var prNote = f.querySelector('[data-ai-pricing-note]');
+      if (prNote) prNote.textContent = o.getAttribute('data-pricing-note') || '';
+      var link = f.querySelector('[data-ai-keys-link]');
+      var href = o.getAttribute('data-keys-url');
+      if (href) { link.href = href; link.hidden = false; } else { link.hidden = true; }
+      var name = f.querySelector('[name="name"]');
+      if (!name.dataset.touched) name.value = o.textContent.replace(/\s*\(.*\)\s*$/, '').trim();
+    });
+    f.querySelector('[name="name"]').addEventListener('input', function () { this.dataset.touched = '1'; });
+  }
 })();

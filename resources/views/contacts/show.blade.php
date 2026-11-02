@@ -17,6 +17,7 @@
     </div>
     <div class="page-actions">
         @if ($contact->whatsapp_link)<a class="btn" target="_blank" rel="noopener" href="{{ $contact->whatsapp_link }}"><x-icon name="whatsapp" class="sm" /> WhatsApp</a>@endif
+        <a class="btn" href="{{ route('assistant.index', ['contato' => $contact->id]) }}"><x-icon name="sparkles" class="sm" /> Perguntar à IA</a>
         <div class="dropdown">
             <button class="btn" data-dropdown-toggle><x-icon name="plus" class="sm" /> Adicionar <x-icon name="chevron-down" class="sm" /></button>
             <div class="dropdown-menu">

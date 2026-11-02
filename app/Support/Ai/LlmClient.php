@@ -7,6 +7,7 @@ use Composer\CaBundle\CaBundle;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
@@ -24,17 +25,41 @@ class LlmClient
     public function chat(AiProvider $provider, string $system, array $messages, ?int $maxTokens = null): AiReply
     {
         $maxTokens = $maxTokens ?: ($provider->max_tokens ?: 4096);
+        $send = fn () => match ($provider->protocol) {
+            'anthropic' => $this->anthropic($provider, $system, $messages, $maxTokens),
+            'gemini' => $this->gemini($provider, $system, $messages, $maxTokens),
+            'ollama' => $this->ollama($provider, $system, $messages, $maxTokens),
+            default => $this->openai($provider, $system, $messages, $maxTokens),
+        };
 
         try {
-            return match ($provider->protocol) {
-                'anthropic' => $this->anthropic($provider, $system, $messages, $maxTokens),
-                'gemini' => $this->gemini($provider, $system, $messages, $maxTokens),
-                'ollama' => $this->ollama($provider, $system, $messages, $maxTokens),
-                default => $this->openai($provider, $system, $messages, $maxTokens),
-            };
+            return $send();
         } catch (ConnectionException $e) {
+            // Windows com antivírus/proxy que inspeciona HTTPS: importa as autoridades do
+            // Windows uma vez e tenta de novo, sem desligar a verificação SSL.
+            if ($this->canImportWindowsCertificates($e->getMessage())) {
+                try {
+                    CertificateStore::buildFromWindows();
+
+                    return $send();
+                } catch (ConnectionException $retry) {
+                    $e = $retry;
+                } catch (AiException) {
+                    // segue com a mensagem do erro original
+                }
+            }
+
             throw new AiException(self::connectionMessage($provider, $e->getMessage()), 0, $e);
         }
+    }
+
+    private function canImportWindowsCertificates(string $error): bool
+    {
+        return CertificateStore::isWindows()
+            && (string) config('services.ai.ca_bundle') === ''
+            && CertificateStore::isCertificateError($error)
+            && ! Cache::has('ai-windows-certs-imported')
+            && Cache::put('ai-windows-certs-imported', true, now()->addMinutes(10));
     }
 
     private function http(AiProvider $provider): PendingRequest
@@ -49,13 +74,17 @@ class LlmClient
     /**
      * Certificados confiáveis para HTTPS. No Windows/Laragon o PHP costuma vir sem o
      * curl.cainfo configurado, o que derruba toda conexão HTTPS (cURL error 60).
-     * Usa o arquivo de AI_CA_BUNDLE, o do sistema ou o que acompanha o composer/ca-bundle.
+     * Ordem: AI_CA_BUNDLE, o arquivo gerado com as autoridades do Windows
+     * (php artisan ai:certificados), o do sistema ou o que acompanha o composer/ca-bundle.
      */
     public static function caBundle(): string|bool
     {
         $custom = (string) config('services.ai.ca_bundle');
         if ($custom !== '' && is_readable($custom)) {
             return $custom;
+        }
+        if ($generated = CertificateStore::generated()) {
+            return $generated;
         }
 
         try {
@@ -73,6 +102,9 @@ class LlmClient
         $code = (int) ($m[1] ?? 0);
 
         $reason = match (true) {
+            (bool) preg_match('/self[- ]signed certificate/i', $error) => 'a conexão HTTPS está sendo interceptada por um programa deste computador ou da rede (antivírus com "verificação HTTPS/SSL", firewall ou proxy da empresa), que troca o certificado do site pelo dele.'
+                .(CertificateStore::isWindows() ? ' O sistema tentou usar os certificados instalados no Windows e não bastou.' : '')
+                .' Solução: no antivírus, desative a verificação de conexões HTTPS/SSL ou coloque o php.exe nas exceções; ou exporte o certificado raiz desse programa (.pem) e informe o caminho em AI_CA_BUNDLE no .env.',
             in_array($code, [60, 77], true) || str_contains($error, 'SSL certificate') => 'o PHP não conseguiu validar o certificado SSL do site. No Laragon/Windows isso acontece quando o php.ini não tem o "curl.cainfo" configurado. Atualize o sistema (composer install) ou informe o caminho de um cacert.pem em AI_CA_BUNDLE no .env.',
             $code === 6 => 'o endereço "'.$host.'" não foi encontrado (DNS). Verifique a internet do servidor e se a URL está correta.',
             $code === 7 => 'a conexão com "'.$host.'" foi recusada. Verifique se o serviço está rodando, a porta e o firewall/antivírus.',

@@ -16,6 +16,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\WhatsappController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -86,6 +87,25 @@ Route::middleware('auth')->group(function () {
         Route::post('/webhooks/{webhook}/segredo', 'rotateSecret')->name('webhooks.secret');
         Route::post('/entregas/{delivery}/reenviar', 'redeliver')->name('deliveries.redeliver')->middleware('throttle:20,1');
         Route::post('/rotina', 'runRoutine')->name('routine')->middleware('throttle:10,1');
+    });
+
+    Route::controller(WhatsappController::class)->prefix('whatsapp')->name('whatsapp.')->group(function () {
+        Route::middleware('can:admin')->group(function () {
+            Route::get('/canais', 'channels')->name('channels.index');
+            Route::get('/canais/novo', 'createChannel')->name('channels.create');
+            Route::post('/canais', 'storeChannel')->name('channels.store');
+            Route::get('/canais/{channel}/editar', 'editChannel')->name('channels.edit');
+            Route::put('/canais/{channel}', 'updateChannel')->name('channels.update');
+            Route::delete('/canais/{channel}', 'destroyChannel')->name('channels.destroy');
+            Route::post('/canais/{channel}/testar', 'testChannel')->name('channels.test')->middleware('throttle:20,1');
+        });
+        Route::get('/', 'index')->name('index');
+        Route::get('/arquivos/{message}', 'media')->name('media');
+        Route::get('/{conversation}', 'show')->whereNumber('conversation')->name('show');
+        Route::get('/{conversation}/novas', 'poll')->whereNumber('conversation')->name('poll');
+        Route::post('/{conversation}/mensagens', 'send')->whereNumber('conversation')->name('send')->middleware('throttle:60,1');
+        Route::patch('/{conversation}/modo', 'mode')->whereNumber('conversation')->name('mode');
+        Route::patch('/{conversation}/contato', 'linkContact')->whereNumber('conversation')->name('contact');
     });
 
     Route::get('/perfil', [ProfileController::class, 'edit'])->name('profile.edit');

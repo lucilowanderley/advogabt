@@ -45,6 +45,10 @@ class ContactController extends Controller
             'crm_stage' => $request->query('etapa', 'cliente'),
             'nationality' => 'brasileiro(a)',
             'user_id' => $request->user()->id,
+            // Pré-preenchimento (ex.: novo contato a partir de uma conversa do WhatsApp)
+            'name' => $request->query('nome'),
+            'whatsapp' => $request->query('whatsapp'),
+            'phone' => $request->query('whatsapp'),
         ]);
 
         return view('contacts.form', ['contact' => $contact, 'users' => User::where('active', true)->orderBy('name')->get()]);

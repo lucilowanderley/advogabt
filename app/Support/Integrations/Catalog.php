@@ -34,8 +34,10 @@ class Catalog
             'title' => 'WhatsApp e autoatendimento',
             'icon' => 'whatsapp',
             'group' => 'Atendimento',
-            'status' => 'proxima',
-            'description' => 'Bot que responde ao cliente sobre o andamento do processo, agenda atendimentos e recebe documentos, usando o Assistente IA.',
+            'status' => 'disponivel',
+            'route' => 'whatsapp.index',
+            'everyone' => true,
+            'description' => 'Robô que responde ao cliente sobre o andamento do processo, registra pedidos de agendamento e recebe documentos, usando o Assistente IA. A equipe assume a conversa quando precisar.',
             'tags' => ['API oficial (Meta)', 'Evolution API'],
         ],
         'tribunais' => [

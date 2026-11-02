@@ -15,12 +15,17 @@ Sistema de gestão para escritórios de advocacia, feito em **PHP 8.3+ / Laravel
 | **Financeiro** | Contas a receber e a pagar por mês, parcelamento automático, baixa/estorno com um clique, inadimplência e receitas por categoria. |
 | **Modelos** | Procurações, contratos, declarações e petições com variáveis (`{{cliente.nome}}`, `{{processo.numero}}`, `{{advogado.oab}}`...) preenchidas automaticamente, prontas para imprimir ou salvar em PDF. |
 | **Assistente IA** | Conversas com a IA contratada pelo escritório, com os dados do processo ou do contato no contexto (andamentos, prazos, compromissos, qualificação). Atalhos para resumo, próximos passos, riscos, mensagem ao cliente, minutas e prazos. Respostas podem ser copiadas ou salvas como modelo. Funciona com Claude (Anthropic, recomendado), OpenAI, Azure OpenAI, Gemini, Mistral, DeepSeek, Groq, OpenRouter, Ollama (local) e qualquer serviço compatível com a OpenAI; cada provedor mostra se é grátis ou comercial. Chaves criptografadas, provedor padrão, teste de conexão e consumo de tokens no mês (Assistente IA › Provedores, só administradores). |
-| **Integrações** | API REST v1 com tokens (somente leitura ou leitura e escrita) e webhooks assinados (HMAC SHA-256) para n8n, Make, Zapier e sistemas próprios. Eventos: novo processo, processo alterado, novo andamento, prazo vencendo, tarefa criada/concluída, compromisso, contato, etapa do CRM, lançamento e pagamento recebido. Histórico de envios com reenvio e repetição automática. Documentação em Integrações › Documentação da API. WhatsApp, tribunais (Datajud/DJEN), assinatura digital, cobrança/NFS-e, agenda/e-mail e arquivos aparecem como "breve". |
+| **WhatsApp** | Robô de autoatendimento ligado ao WhatsApp do escritório pela Evolution API (gratuita, QR Code) ou pela API oficial da Meta. Reconhece o cliente pelo número cadastrado e informa o andamento dos processos com o Assistente IA, em linguagem simples. Também registra pedidos de agendamento, recebe documentos e passa a conversa para a equipe, criando tarefas. A caixa de entrada permite à equipe assumir e responder. Opcional: avisar o cliente de cada novo andamento. Números desconhecidos nunca recebem dados de processos. |
+| **Integrações** | API REST v1 com tokens (somente leitura ou leitura e escrita) e webhooks assinados (HMAC SHA-256) para n8n, Make, Zapier e sistemas próprios. Eventos: novo processo, processo alterado, novo andamento, prazo vencendo, tarefa criada/concluída, compromisso, contato, etapa do CRM, lançamento e pagamento recebido. Histórico de envios com reenvio e repetição automática. Documentação em Integrações › Documentação da API. Tribunais (Datajud/DJEN), assinatura digital, cobrança/NFS-e, agenda/e-mail e arquivos aparecem como "breve". |
 | **Usuários** | Perfis (administrador, advogado, estagiário, financeiro, secretaria), ativação e cor do avatar. |
 
 Interface em português, tema escuro (padrão) e claro, responsiva para celular. Não precisa de Node/NPM: o CSS e o JavaScript ficam prontos em `public/`.
 
-Próxima fase prevista: bot de autoatendimento no WhatsApp com o Assistente IA; depois tribunais (Datajud/DJEN), assinatura digital, cobrança, agenda e arquivos.
+Próximas integrações previstas: tribunais (Datajud/DJEN), assinatura digital, cobrança, agenda e arquivos.
+
+### WhatsApp
+
+Cadastre o número em **WhatsApp › Canais e robô** e cole a URL de recebimento exibida ali no painel da Evolution API (evento `MESSAGES_UPSERT`) ou no webhook do app da Meta. Essa URL precisa ser acessível pela internet: num Laragon local, use um túnel (Cloudflare Tunnel, ngrok) ou publique o sistema.
 
 ### Agendador (prazos vencendo e reenvio de webhooks)
 

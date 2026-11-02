@@ -7,12 +7,17 @@ use App\Http\Controllers\Api\FinanceController;
 use App\Http\Controllers\Api\StatusController;
 use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\WebhookSubscriptionController;
+use App\Http\Controllers\Api\WhatsappWebhookController;
 use Illuminate\Support\Facades\Route;
 
 /*
 | API REST v1 do ADVOGABT (prefixo /api/v1). Autenticação por token criado em
 | Integrações > API REST: "Authorization: Bearer advbt_...". Documentação em /integracoes/api.
 */
+// Avisos de mensagens do WhatsApp (Evolution API ou Meta). O token na URL identifica o canal.
+Route::get('/whatsapp/{token}', [WhatsappWebhookController::class, 'verify'])->middleware('throttle:60,1')->name('whatsapp.webhook.verify');
+Route::post('/whatsapp/{token}', [WhatsappWebhookController::class, 'receive'])->middleware('throttle:600,1')->name('whatsapp.webhook');
+
 Route::prefix('v1')->name('api.')->middleware(['api.token', 'throttle:api-token'])->group(function () {
     Route::get('/status', [StatusController::class, 'status'])->name('status');
     Route::get('/eventos', [StatusController::class, 'events'])->name('events');

@@ -5,6 +5,7 @@
 </head>
 <body>
 @php
+    $waWaiting = \App\Models\WhatsappConversation::where('unread', '>', 0)->count();
     $nav = [
         ['route' => 'dashboard', 'match' => 'dashboard', 'icon' => 'home', 'label' => 'Meu painel'],
         ['route' => 'events.index', 'match' => 'events.*', 'icon' => 'calendar', 'label' => 'Agenda'],
@@ -16,6 +17,7 @@
         ['route' => 'templates.index', 'match' => 'templates.*', 'icon' => 'file-text', 'label' => 'Modelos'],
         ['route' => 'reports.index', 'match' => 'reports.*', 'icon' => 'chart', 'label' => 'Relatórios / BI'],
         ['route' => 'assistant.index', 'match' => ['assistant.*', 'ai-providers.*'], 'icon' => 'sparkles', 'label' => 'Assistente IA'],
+        ['route' => 'whatsapp.index', 'match' => 'whatsapp.*', 'icon' => 'whatsapp', 'label' => 'WhatsApp', 'badge' => $waWaiting],
         ['route' => 'integrations.index', 'match' => 'integrations.*', 'icon' => 'plug', 'label' => 'Integrações'],
     ];
     $me = auth()->user();
@@ -34,11 +36,9 @@
             @foreach ($nav as $item)
                 <a href="{{ route($item['route']) }}" class="{{ request()->routeIs($item['match']) ? 'active' : '' }}">
                     <x-icon :name="$item['icon']" /> {{ $item['label'] }}
+                    @if (! empty($item['badge']))<span class="soon nav-badge" title="Conversas com mensagens não lidas">{{ $item['badge'] }}</span>@endif
                 </a>
             @endforeach
-
-            <div class="nav-label">Em breve</div>
-            <a href="{{ route('integrations.index') }}" title="Bot de autoatendimento: próxima etapa das Integrações"><x-icon name="whatsapp" /> WhatsApp <span class="soon">breve</span></a>
 
             <div class="nav-label">Sistema</div>
             <a href="{{ route('profile.edit') }}" class="{{ request()->routeIs('profile.*') ? 'active' : '' }}"><x-icon name="user" /> Meu perfil</a>
@@ -106,6 +106,6 @@
         </main>
     </div>
 </div>
-<script src="{{ asset('js/app.js') }}?v=5"></script>
+<script src="{{ asset('js/app.js') }}?v=6"></script>
 </body>
 </html>

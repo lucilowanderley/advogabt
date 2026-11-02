@@ -6,6 +6,7 @@ use App\Models\CloudStorage;
 use App\Support\Cloud\CloudClient;
 use App\Support\Cloud\CloudException;
 use App\Support\Cloud\CloudFolders;
+use App\Support\Cloud\Rclone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,6 +25,7 @@ class CloudFileController extends Controller
     {
         $storage = CloudStorage::current() ?? new CloudStorage([
             'driver' => 'google',
+            'auth_mode' => 'rclone',
             'tenant' => 'common',
             'access' => 'completo',
             'root_name' => 'ADVOGABT',
@@ -36,7 +38,7 @@ class CloudFileController extends Controller
         if (in_array($tipo, array_keys(CloudStorage::DRIVERS), true) && $tipo !== $storage->driver) {
             // Trocar de nuvem: mostra o formulário limpo; ao salvar, a conexão atual é substituída.
             $storage = new CloudStorage($storage->only(['root_name', 'case_layout', 'subfolders', 'auto_create', 'copy_whatsapp']) + [
-                'driver' => $tipo, 'tenant' => 'common', 'access' => 'completo',
+                'driver' => $tipo, 'auth_mode' => $storage->auth_mode ?? 'rclone', 'tenant' => 'common', 'access' => 'completo',
             ]);
         }
 
@@ -45,6 +47,8 @@ class CloudFileController extends Controller
             'suggestedRedirect' => CloudStorage::suggestedRedirectUri(),
             'folders' => $storage->exists ? $storage->folders()->count() : 0,
             'missing' => $storage->isConnected() ? $this->folders->missingCount($storage) : 0,
+            'rclone' => Rclone::version(),
+            'rcloneCommand' => Rclone::authorizeCommand($storage),
             'callbackError' => $request->query('erro'),
             'callbackOk' => $request->boolean('conectado'),
         ]);
@@ -53,14 +57,16 @@ class CloudFileController extends Controller
     public function save(Request $request): RedirectResponse
     {
         $storage = CloudStorage::current() ?? new CloudStorage;
+        $app = $request->input('auth_mode') === 'app';
         $keepSecret = $storage->client_secret && $request->input('driver') === $storage->driver;
         $data = $request->validate([
             'driver' => ['required', Rule::in(array_keys(CloudStorage::DRIVERS))],
-            'client_id' => ['required', 'string', 'max:255'],
-            'client_secret' => [$keepSecret ? 'nullable' : 'required', 'nullable', 'string', 'max:500'],
+            'auth_mode' => ['required', Rule::in(array_keys(CloudStorage::AUTH_MODES))],
+            'client_id' => [$app ? 'required' : 'nullable', 'nullable', 'string', 'max:255'],
+            'client_secret' => [$app && ! $keepSecret ? 'required' : 'nullable', 'nullable', 'string', 'max:500'],
             'tenant' => ['nullable', 'string', 'max:100', 'regex:/^[\w.-]+$/'],
             'access' => ['nullable', Rule::in(array_keys(CloudStorage::ACCESS))],
-            'redirect_uri' => ['required', 'url:http,https', 'max:255'],
+            'redirect_uri' => [$app ? 'required' : 'nullable', 'nullable', 'url:http,https', 'max:255'],
             'root_name' => ['required', 'string', 'max:100'],
             'root_link' => ['nullable', 'string', 'max:500'],
             'case_layout' => ['required', Rule::in(array_keys(CloudStorage::LAYOUTS))],
@@ -70,13 +76,15 @@ class CloudFileController extends Controller
             'redirect_uri' => 'URL de retorno', 'root_name' => 'pasta principal', 'subfolders' => 'subpastas',
         ]);
 
-        $before = $storage->only(['driver', 'client_id', 'tenant', 'access']);
+        $identity = ['driver', 'auth_mode', 'client_id', 'tenant', 'access'];
+        $before = $storage->only($identity);
         $storage->fill([
             'driver' => $data['driver'],
-            'client_id' => trim($data['client_id']),
+            'auth_mode' => $data['auth_mode'],
+            'client_id' => $app ? trim($data['client_id']) : $storage->client_id,
             'tenant' => $data['driver'] === 'onedrive' ? ($data['tenant'] ?: 'common') : null,
             'access' => $data['driver'] === 'google' ? ($data['access'] ?? 'completo') : 'completo',
-            'redirect_uri' => trim($data['redirect_uri']),
+            'redirect_uri' => $app ? trim($data['redirect_uri']) : $storage->redirect_uri,
             'case_layout' => $data['case_layout'],
             'subfolders' => $data['subfolders'] ?? null,
             'auto_create' => $request->boolean('auto_create'),
@@ -89,16 +97,19 @@ class CloudFileController extends Controller
         $storage->root_name = $data['root_name'];
 
         $message = 'Configuração salva.';
-        $reconnect = $storage->exists && $before !== $storage->only(['driver', 'client_id', 'tenant', 'access']);
+        $reconnect = $storage->exists && $before !== $storage->only($identity);
         if ($reconnect) {
             if ($before['driver'] !== $storage->driver) {
                 $storage->folders()->delete(); // ids de outra nuvem não servem mais
-                $storage->forceFill(['root_folder_id' => null, 'root_folder_url' => null, 'drive_id' => null, 'folder_cache' => null]);
+                $storage->forceFill(['root_folder_id' => null, 'root_folder_url' => null, 'drive_id' => null, 'drive_type' => null, 'folder_cache' => null]);
             }
             $storage->forceFill(['access_token' => null, 'refresh_token' => null, 'token_expires_at' => null, 'connected_at' => null]);
-            $message = 'Configuração salva. Como a conta ou o app mudou, clique em "Conectar" para entrar de novo.';
+            $message = 'Configuração salva. Como a nuvem ou a forma de conexão mudou, conecte a conta de novo.';
         }
         $storage->save();
+        if ($storage->usesRclone() && ! $storage->isConnected()) {
+            $message .= ' Agora siga os 3 passos do quadro "Conectar a conta" para entrar na conta.';
+        }
 
         if ($storage->isConnected() && (filled($data['root_link'] ?? null) || $rootChanged)) {
             try {
@@ -116,7 +127,7 @@ class CloudFileController extends Controller
     public function connect(CloudClient $client): RedirectResponse
     {
         $storage = CloudStorage::current();
-        if (! $storage || blank($storage->client_id) || blank($storage->client_secret)) {
+        if (! $storage || $storage->usesRclone() || blank($storage->client_id) || blank($storage->client_secret)) {
             return redirect()->route('cloud.settings')->with('error', 'Preencha e salve o ID do cliente e a chave secreta antes de conectar.');
         }
         $nonce = Str::random(40);
@@ -156,6 +167,41 @@ class CloudFileController extends Controller
         }
 
         return redirect()->away($back.'?conectado=1');
+    }
+
+    /** Conexão rápida: recebe o token gerado pelo "rclone authorize". */
+    public function pasteToken(Request $request, CloudClient $client): RedirectResponse
+    {
+        $storage = CloudStorage::current();
+        if (! $storage?->usesRclone()) {
+            return redirect()->route('cloud.settings')->with('error', 'Salve a configuração com a conexão rápida (rclone) antes de colar o token.');
+        }
+        $data = $request->validate(['token' => ['required', 'string', 'max:20000']], [], ['token' => 'token']);
+        @set_time_limit(120);
+        try {
+            $client->connectWithRcloneToken($storage, $data['token']);
+            $item = $this->folders->setupRoot($storage);
+            $storage->forceFill(['last_test_at' => now(), 'last_test_ok' => true, 'last_error' => null])->save();
+        } catch (CloudException $e) {
+            $storage->forceFill(['access_token' => null, 'refresh_token' => null, 'token_expires_at' => null, 'last_error' => $e->getMessage()])->save();
+
+            return back()->withErrors(['token' => $e->getMessage()]);
+        }
+        $warning = Rclone::path() ? '' : ' Atenção: instale o rclone neste servidor, senão a conexão para de funcionar em 1 hora (é ele que renova o acesso).';
+
+        return redirect()->route('cloud.settings')->with('success', "{$storage->driver_label} conectado".($storage->account_email ? " como {$storage->account_email}" : '').". Pasta principal: {$item['name']}.".$warning);
+    }
+
+    public function installRclone(): RedirectResponse
+    {
+        @set_time_limit(600);
+        try {
+            $path = Rclone::install();
+        } catch (CloudException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'rclone instalado: '.(Rclone::version() ?? $path).'.');
     }
 
     public function test(CloudClient $client): RedirectResponse

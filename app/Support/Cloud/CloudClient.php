@@ -79,12 +79,27 @@ class CloudClient
         if (blank($s->refresh_token)) {
             throw new CloudException('O login não devolveu a autorização permanente (refresh token). Remova o acesso do ADVOGABT na sua conta e conecte de novo.');
         }
+        $this->identify($s);
+    }
 
+    /** Conexão rápida: guarda o token colado do "rclone authorize" e lê a conta. */
+    public function connectWithRcloneToken(CloudStorage $s, string $pasted): void
+    {
+        Rclone::storeToken($s, Rclone::parseToken($pasted));
+        if ($s->token_expires_at->isBefore(now()->addMinutes(2))) {
+            $s->forceFill(['token_expires_at' => now()->addMinutes(2)])->save(); // usa o token colado para identificar a conta
+        }
+        $this->identify($s);
+    }
+
+    private function identify(CloudStorage $s): void
+    {
         $account = $this->account($s);
         $s->forceFill([
             'account_name' => $account['name'],
             'account_email' => $account['email'],
             'drive_id' => $account['drive_id'],
+            'drive_type' => $account['drive_type'],
             'connected_at' => now(),
             'last_error' => null,
         ])->save();
@@ -102,7 +117,7 @@ class CloudClient
         }
     }
 
-    /** @return array{name: ?string, email: ?string, drive_id: ?string, quota: ?string} */
+    /** @return array{name: ?string, email: ?string, drive_id: ?string, drive_type: ?string, quota: ?string} */
     public function account(CloudStorage $s): array
     {
         if ($s->driver === 'google') {
@@ -113,18 +128,21 @@ class CloudClient
                 'name' => $r->json('user.displayName'),
                 'email' => $r->json('user.emailAddress'),
                 'drive_id' => null,
+                'drive_type' => null,
                 'quota' => $limit ? $this->bytes((int) $r->json('storageQuota.usage')).' de '.$this->bytes((int) $limit).' usados' : null,
             ];
         }
 
-        $me = $this->guard($this->call(fn () => $this->api($s)->get(self::GRAPH.'/me', ['$select' => 'displayName,mail,userPrincipalName'])));
-        $drive = $this->guard($this->call(fn () => $this->api($s)->get(self::GRAPH.'/me/drive', ['$select' => 'id,quota,driveType'])));
+        $drive = $this->guard($this->call(fn () => $this->api($s)->get(self::GRAPH.'/me/drive', ['$select' => 'id,quota,driveType,owner'])));
+        // O token do rclone não tem User.Read: /me pode ser recusado, então ele é opcional.
+        $me = $this->call(fn () => $this->api($s)->get(self::GRAPH.'/me', ['$select' => 'displayName,mail,userPrincipalName']));
         $total = $drive->json('quota.total');
 
         return [
-            'name' => $me->json('displayName'),
-            'email' => $me->json('mail') ?: $me->json('userPrincipalName'),
+            'name' => ($me->successful() ? $me->json('displayName') : null) ?: $drive->json('owner.user.displayName'),
+            'email' => ($me->successful() ? ($me->json('mail') ?: $me->json('userPrincipalName')) : null) ?: $drive->json('owner.user.email'),
             'drive_id' => $drive->json('id'),
+            'drive_type' => $drive->json('driveType'),
             'quota' => $total ? $this->bytes((int) $drive->json('quota.used')).' de '.$this->bytes((int) $total).' usados' : null,
         ];
     }
@@ -310,7 +328,11 @@ class CloudClient
         }
 
         try {
-            $this->storeTokens($s, $this->tokenRequest($s, ['grant_type' => 'refresh_token', 'refresh_token' => $s->refresh_token]));
+            if ($s->usesRclone()) {
+                Rclone::refresh($s);
+            } else {
+                $this->storeTokens($s, $this->tokenRequest($s, ['grant_type' => 'refresh_token', 'refresh_token' => $s->refresh_token]));
+            }
         } catch (CloudException $e) {
             if (str_contains($e->getMessage(), 'invalid_grant')) {
                 // Autorização revogada, senha trocada ou app em modo de teste no Google (expira em 7 dias).

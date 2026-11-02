@@ -30,7 +30,7 @@ Cadastre o número em **WhatsApp › Canais e robô** e cole a URL de recebiment
 
 ### Arquivos na nuvem
 
-Em **Integrações › Arquivos na nuvem**, escolha Google Drive ou OneDrive, crie o app no Google Cloud Console ou no Microsoft Entra seguindo o passo a passo da tela, cole o ID e a chave secreta e clique em **Conectar**. Google e Microsoft só aceitam endereço `http` em `localhost`, por isso no Laragon a URL de retorno sugerida é `http://localhost/<pasta-do-projeto>/public/integracoes/arquivos/retorno`. Para criar as pastas de clientes e processos que já existiam, use "Criar pastas que faltam" ou `php artisan arquivos:pastas`.
+Em **Integrações › Arquivos na nuvem**, escolha Google Drive ou OneDrive. Na **conexão rápida (rclone)**, recomendada, não é preciso criar app: clique em "Instalar rclone", rode no PowerShell o comando `rclone authorize` mostrado na tela, entre na conta e cole o código gerado (o rclone fica instalado porque é ele que renova o acesso). Na opção **app próprio**, crie o app no Google Cloud Console ou no Microsoft Entra seguindo o passo a passo da tela, cole o ID e a chave secreta e clique em **Conectar**. No app próprio, Google e Microsoft só aceitam endereço `http` em `localhost`, por isso no Laragon a URL de retorno sugerida é `http://localhost/<pasta-do-projeto>/public/integracoes/arquivos/retorno`. Para criar as pastas de clientes e processos que já existiam, use "Criar pastas que faltam" ou `php artisan arquivos:pastas`.
 
 ### Agendador (prazos vencendo e reenvio de webhooks)
 

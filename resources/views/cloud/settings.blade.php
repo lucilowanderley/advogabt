@@ -3,6 +3,8 @@
     use App\Models\CloudStorage;
     $driver = old('driver', $storage->driver);
     $isGoogle = $driver === 'google';
+    $mode = old('auth_mode', $storage->auth_mode ?: 'rclone');
+    $savedRclone = $storage->exists && $storage->usesRclone() && $storage->driver === $driver;
     $connected = $storage->isConnected();
 @endphp
 
@@ -68,26 +70,35 @@
     <input type="hidden" name="driver" value="{{ $driver }}">
     <div class="card-body form-grid">
         <div class="col-12 small muted" style="margin-bottom: 4px">{{ CloudStorage::DRIVERS[$driver]['note'] }}</div>
-        <x-field name="client_id" :label="$isGoogle ? 'ID do cliente (Client ID) *' : 'ID do aplicativo (cliente) *'" col="6">
-            <input type="text" name="client_id" id="f-client_id" value="{{ old('client_id', $storage->client_id) }}" required maxlength="255" autocomplete="off">
+        <x-field name="auth_mode" label="Forma de conexão" col="12">
+            <select name="auth_mode" id="f-auth_mode" data-auth-mode>
+                <option value="rclone" @selected($mode === 'rclone')>Conexão rápida pelo rclone (recomendado: não precisa criar app no {{ $isGoogle ? 'Google Cloud' : 'Microsoft Entra' }})</option>
+                <option value="app" @selected($mode === 'app')>App próprio do escritório (OAuth com ID e chave secreta)</option>
+            </select>
         </x-field>
-        <x-field name="client_secret" :label="$isGoogle ? 'Chave secreta do cliente *' : 'Valor do segredo do cliente *'" col="6" :hint="$storage->client_secret ? 'Já cadastrada. Deixe em branco para manter.' : 'Fica gravada criptografada.'">
+        <div class="col-12 small muted" data-mode="rclone" @if ($mode !== 'rclone') hidden @endif>
+            Você roda um comando do rclone no PowerShell, entra na conta pelo navegador e cola aqui o código gerado. O rclone precisa ficar instalado neste servidor, porque é ele que renova o acesso a cada hora.
+        </div>
+        <x-field name="client_id" :label="$isGoogle ? 'ID do cliente (Client ID) *' : 'ID do aplicativo (cliente) *'" col="6" data-mode="app" :hidden="$mode !== 'app'">
+            <input type="text" name="client_id" id="f-client_id" value="{{ old('client_id', $storage->client_id) }}" maxlength="255" autocomplete="off">
+        </x-field>
+        <x-field name="client_secret" :label="$isGoogle ? 'Chave secreta do cliente *' : 'Valor do segredo do cliente *'" col="6" :hint="$storage->client_secret ? 'Já cadastrada. Deixe em branco para manter.' : 'Fica gravada criptografada.'" data-mode="app" :hidden="$mode !== 'app'">
             <input type="password" name="client_secret" id="f-client_secret" autocomplete="new-password" placeholder="{{ $storage->client_secret ? '••••••••' : '' }}">
         </x-field>
         @if ($isGoogle)
-            <x-field name="access" label="Acesso ao Drive" col="12">
+            <x-field name="access" label="Acesso ao Drive" col="12" data-mode="app" :hidden="$mode !== 'app'">
                 <select name="access" id="f-access">
                     @foreach (CloudStorage::ACCESS as $k => $label)<option value="{{ $k }}" @selected(old('access', $storage->access) === $k)>{{ $label }}</option>@endforeach
                 </select>
             </x-field>
         @else
-            <x-field name="tenant" label="Locatário (tenant)" col="12" hint="common = qualquer conta Microsoft; organizations = só contas do Microsoft 365; ou o ID do locatário do escritório.">
+            <x-field name="tenant" label="Locatário (tenant)" col="12" hint="common = qualquer conta Microsoft; organizations = só contas do Microsoft 365; ou o ID do locatário do escritório." data-mode="app" :hidden="$mode !== 'app'">
                 <input type="text" name="tenant" id="f-tenant" value="{{ old('tenant', $storage->tenant ?: 'common') }}" maxlength="100">
             </x-field>
         @endif
-        <x-field name="redirect_uri" label="URL de retorno (redirect URI) *" col="12" :hint="'Cadastre exatamente este endereço no app do '.($isGoogle ? 'Google' : 'Microsoft Entra').'. Sugestão para este endereço: '.$suggestedRedirect">
+        <x-field name="redirect_uri" label="URL de retorno (redirect URI) *" col="12" :hint="'Cadastre exatamente este endereço no app do '.($isGoogle ? 'Google' : 'Microsoft Entra').'. Sugestão para este endereço: '.$suggestedRedirect" data-mode="app" :hidden="$mode !== 'app'">
             <div class="copy-field">
-                <input type="url" name="redirect_uri" id="f-redirect_uri" value="{{ old('redirect_uri', $storage->redirect_uri ?: $suggestedRedirect) }}" required maxlength="255" style="flex: 1">
+                <input type="url" name="redirect_uri" id="f-redirect_uri" value="{{ old('redirect_uri', $storage->redirect_uri ?: $suggestedRedirect) }}" maxlength="255" style="flex: 1">
                 <button type="button" class="btn btn-sm" data-copy-input><x-icon name="copy" class="sm" /> Copiar</button>
             </div>
         </x-field>
@@ -120,10 +131,10 @@
                 <button type="submit" form="cloud-disconnect" class="btn btn-ghost text-red">Desconectar</button>
             @endif
             <span class="spacer"></span>
-            <button class="btn {{ $storage->exists && ! $connected ? '' : 'btn-primary' }}"><x-icon name="check" class="sm" /> Salvar</button>
-            @if ($storage->exists && ! $connected)
+            <button class="btn {{ $storage->exists && ! $connected && ! $storage->usesRclone() ? '' : 'btn-primary' }}"><x-icon name="check" class="sm" /> Salvar</button>
+            @if ($storage->exists && ! $storage->usesRclone() && ! $connected)
                 <a class="btn btn-primary" href="{{ route('cloud.connect') }}"><x-icon name="cloud" class="sm" /> Conectar ao {{ $storage->driver_label }}</a>
-            @elseif ($connected)
+            @elseif ($connected && ! $storage->usesRclone())
                 <a class="btn" href="{{ route('cloud.connect') }}" title="Entrar de novo (ex.: trocar de conta)"><x-icon name="refresh" class="sm" /> Reconectar</a>
             @endif
         </div>
@@ -133,7 +144,42 @@
     <form id="cloud-disconnect" method="post" action="{{ route('cloud.disconnect') }}" data-confirm="Desconectar a nuvem? As pastas e os arquivos continuam lá, mas a equipe deixa de vê-los no ADVOGABT.">@csrf @method('delete')</form>
 @endif
 
-<div class="card">
+<div class="stack">
+@if ($savedRclone)
+    <div class="card {{ $connected ? '' : 'new-secret' }}">
+        <div class="card-head"><h3><x-icon name="cloud" /> {{ $connected ? 'Trocar a conta conectada' : 'Conectar a conta '.($isGoogle ? 'Google' : 'Microsoft') }}</h3></div>
+        <div class="card-body small">
+            <ol style="padding-left: 18px; margin: 0 0 12px; display: grid; gap: 10px">
+                <li>
+                    @if ($rclone)
+                        rclone instalado <span class="badge green">{{ $rclone }}</span>
+                    @else
+                        <strong>Instale o rclone</strong> (programa gratuito que faz o login):
+                        <form method="post" action="{{ route('cloud.rclone') }}" style="margin-top: 6px">@csrf<button class="btn btn-sm"><x-icon name="download" class="sm" /> Instalar rclone</button></form>
+                        <div class="faint" style="margin-top: 4px">Baixa de downloads.rclone.org. Ou baixe em rclone.org e coloque o rclone.exe em C:\laragon\bin\rclone\.</div>
+                    @endif
+                </li>
+                <li>
+                    Neste computador, abra o <strong>PowerShell</strong> e rode (copie a linha inteira):
+                    @if ($rcloneCommand)
+                        <div class="copy-field" style="margin-top: 6px"><code data-copy-source>{{ $rcloneCommand }}</code><button type="button" class="btn btn-sm" data-copy><x-icon name="copy" class="sm" /> Copiar</button></div>
+                    @else
+                        <div class="faint">O comando aparece aqui depois de instalar o rclone.</div>
+                    @endif
+                    <div class="faint" style="margin-top: 4px">O navegador abre: entre na conta {{ $isGoogle ? 'Google' : 'Microsoft' }} do escritório e clique em permitir.</div>
+                </li>
+                <li>Copie todo o texto que aparece entre as setas <code>---&gt;</code> e <code>&lt;---</code> e cole abaixo{{ $isGoogle ? '' : ' (em até 1 hora)' }}.</li>
+            </ol>
+            <form method="post" action="{{ route('cloud.token') }}">
+                @csrf
+                <textarea name="token" rows="4" required placeholder='{"access_token":"...","token_type":"Bearer","refresh_token":"...","expiry":"..."}' style="font-family: monospace; font-size: 12px"></textarea>
+                @error('token')<div class="error">{{ $message }}</div>@enderror
+                <div class="form-actions" style="padding-bottom: 0"><span class="spacer"></span><button class="btn btn-primary"><x-icon name="cloud" class="sm" /> Conectar</button></div>
+            </form>
+        </div>
+    </div>
+@endif
+<div class="card" data-mode="app" @if ($mode !== 'app') hidden @endif>
     <div class="card-head"><h3><x-icon name="book" /> Como criar o app {{ $isGoogle ? 'no Google' : 'na Microsoft' }}</h3></div>
     <div class="card-body small muted">
         @if ($isGoogle)
@@ -155,6 +201,7 @@
         @endif
         <p style="margin: 10px 0 0"><strong>No Laragon:</strong> Google e Microsoft só aceitam endereço <code>http</code> em "localhost". Por isso a URL sugerida passa por <code>http://localhost/{{ basename(base_path()) }}/public</code>; depois do login você volta para o endereço normal do sistema.</p>
     </div>
+</div>
 </div>
 </div>
 @endsection

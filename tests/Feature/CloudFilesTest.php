@@ -15,7 +15,9 @@ use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -132,7 +134,7 @@ class CloudFilesTest extends TestCase
     {
         $this->fakeGoogle();
         $this->actingAs($this->admin)->post('/integracoes/arquivos', [
-            'driver' => 'google', 'client_id' => 'cid.apps.googleusercontent.com', 'client_secret' => 'segredo', 'access' => 'completo',
+            'driver' => 'google', 'auth_mode' => 'app', 'client_id' => 'cid.apps.googleusercontent.com', 'client_secret' => 'segredo', 'access' => 'completo',
             'redirect_uri' => 'http://localhost/advogabt/public/integracoes/arquivos/retorno', 'root_name' => 'ADVOGABT',
             'case_layout' => 'cliente', 'subfolders' => "Petições\nDecisões", 'auto_create' => '1', 'copy_whatsapp' => '1',
         ])->assertRedirect(route('cloud.settings'));
@@ -272,7 +274,7 @@ class CloudFilesTest extends TestCase
         $this->get('/integracoes/arquivos/retorno?code=x&state=1.errado')->assertForbidden();
 
         $this->actingAs($this->admin)->post('/integracoes/arquivos', [
-            'driver' => 'onedrive', 'client_id' => 'app-id', 'client_secret' => 'valor', 'tenant' => 'organizations',
+            'driver' => 'onedrive', 'auth_mode' => 'app', 'client_id' => 'app-id', 'client_secret' => 'valor', 'tenant' => 'organizations',
             'redirect_uri' => 'https://advogabt.exemplo.com.br/integracoes/arquivos/retorno', 'root_name' => 'ADVOGABT', 'case_layout' => 'separadas',
         ])->assertSessionHasNoErrors();
         $redirect = $this->get('/integracoes/arquivos/conectar')->headers->get('Location');
@@ -288,7 +290,7 @@ class CloudFilesTest extends TestCase
 
     public function test_onedrive_creates_folders_through_graph(): void
     {
-        $storage = CloudStorage::create(['driver' => 'onedrive', 'client_id' => 'a', 'client_secret' => 'b', 'tenant' => 'common', 'redirect_uri' => 'https://x/retorno', 'root_name' => 'ADVOGABT', 'case_layout' => 'separadas', 'auto_create' => true]);
+        $storage = CloudStorage::create(['driver' => 'onedrive', 'auth_mode' => 'app', 'client_id' => 'a', 'client_secret' => 'b', 'tenant' => 'common', 'redirect_uri' => 'https://x/retorno', 'root_name' => 'ADVOGABT', 'case_layout' => 'separadas', 'auto_create' => true]);
         $storage->forceFill(['refresh_token' => 'rt', 'access_token' => 'at', 'token_expires_at' => now()->addHour(), 'drive_id' => 'D1', 'root_folder_id' => 'ROOT1'])->save();
         $created = [];
         Http::fake(function (Request $r) use (&$created) {
@@ -309,5 +311,77 @@ class CloudFilesTest extends TestCase
 
         $this->assertSame([['ROOT1', 'Processos'], ['I1', '123 - Revisional']], array_slice($created, 0, 2));
         Http::assertSent(fn (Request $r) => $r->hasHeader('Authorization', 'Bearer at'));
+    }
+
+    private function fakeRclone(?callable $onRun = null): void
+    {
+        $bin = storage_path('app/bin/'.(PHP_OS_FAMILY === 'Windows' ? 'rclone.exe' : 'rclone'));
+        @mkdir(dirname($bin), 0777, true);
+        file_put_contents($bin, '');
+        $this->beforeApplicationDestroyed(fn () => @unlink($bin));
+        Process::fake(function (PendingProcess $process) use ($onRun) {
+            $cmd = (array) $process->command;
+            if (in_array('version', $cmd, true)) {
+                return Process::result('rclone v1.68.0');
+            }
+            $conf = $cmd[array_search('--config', $cmd, true) + 1] ?? null;
+
+            return $onRun ? $onRun($conf, $cmd) : Process::result('', 'não simulado', 1);
+        });
+    }
+
+    public function test_quick_connection_with_rclone_token_needs_no_app(): void
+    {
+        $this->fakeGoogle();
+        $this->fakeRclone();
+        $this->actingAs($this->admin)->post('/integracoes/arquivos', [
+            'driver' => 'google', 'auth_mode' => 'rclone', 'root_name' => 'ADVOGABT', 'case_layout' => 'cliente', 'auto_create' => '1',
+        ])->assertSessionHasNoErrors();
+        $this->get('/integracoes/arquivos')->assertOk()->assertSee('authorize &quot;drive&quot;', false)->assertSee('rclone v1.68.0');
+
+        $this->post('/integracoes/arquivos/token', ['token' => 'texto qualquer'])->assertSessionHasErrors('token');
+
+        $pasted = "Paste the following into your remote machine --->\n".json_encode([
+            'access_token' => 'ya29.colado', 'token_type' => 'Bearer', 'refresh_token' => '1//rt-rclone', 'expiry' => now()->addHour()->toRfc3339String(),
+        ])."\n<---End paste";
+        $this->post('/integracoes/arquivos/token', ['token' => $pasted])->assertRedirect(route('cloud.settings'))->assertSessionHas('success');
+
+        $storage = CloudStorage::sole();
+        $this->assertTrue($storage->isConnected());
+        $this->assertSame('1//rt-rclone', $storage->refresh_token);
+        $this->assertSame('escritorio@gmail.com', $storage->account_email);
+        $this->assertSame(['ADVOGABT'], $this->names('root'));
+        Http::assertSent(fn (Request $r) => $r->hasHeader('Authorization', 'Bearer ya29.colado'));
+        Http::assertNotSent(fn (Request $r) => str_contains($r->url(), 'oauth2.googleapis.com/token'));
+    }
+
+    public function test_rclone_renews_expired_token_and_invalid_grant_disconnects(): void
+    {
+        $this->fakeGoogle();
+        $runs = 0;
+        $this->fakeRclone(function (?string $conf, array $cmd) use (&$runs) {
+            $runs++;
+            $this->assertContains('about', $cmd);
+            $ini = file_get_contents($conf);
+            $this->assertStringContainsString('type = drive', $ini);
+            $this->assertStringContainsString('"refresh_token":"1//rt"', $ini);
+            if ($runs > 1) {
+                return Process::result('', 'Failed to about: couldn\'t fetch token: invalid_grant: maybe token expired?', 1);
+            }
+            $new = json_encode(['access_token' => 'ya29.novo', 'token_type' => 'Bearer', 'refresh_token' => '1//rt', 'expiry' => now()->addHour()->toRfc3339String()]);
+            file_put_contents($conf, preg_replace('/^token = .*$/m', 'token = '.$new, $ini));
+
+            return Process::result('{"total":1}');
+        });
+        $storage = CloudStorage::create(['driver' => 'google', 'auth_mode' => 'rclone', 'root_name' => 'ADVOGABT', 'case_layout' => 'cliente']);
+        $storage->forceFill(['access_token' => 'ya29.velho', 'refresh_token' => '1//rt', 'token_expires_at' => now()->subMinute(), 'root_folder_id' => 'root'])->save();
+
+        $this->actingAs($this->admin)->post('/integracoes/arquivos/testar')->assertSessionHas('success');
+        $this->assertSame('ya29.novo', $storage->fresh()->access_token);
+        Http::assertSent(fn (Request $r) => $r->hasHeader('Authorization', 'Bearer ya29.novo'));
+
+        $storage->fresh()->forceFill(['token_expires_at' => now()->subMinutes(5)])->save();
+        $this->post('/integracoes/arquivos/testar')->assertSessionHas('error', fn ($m) => str_contains($m, 'conectar de novo'));
+        $this->assertFalse($storage->fresh()->isConnected());
     }
 }

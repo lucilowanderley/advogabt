@@ -21,6 +21,11 @@ class CloudStorage extends Model
         ],
     ];
 
+    public const AUTH_MODES = [
+        'rclone' => 'Conexão rápida (rclone)',
+        'app' => 'App próprio do escritório (OAuth)',
+    ];
+
     public const ACCESS = [
         'completo' => 'Todo o Drive (vê também arquivos colocados na pasta direto pelo Google Drive)',
         'app' => 'Só o que o ADVOGABT criar (permissão mais restrita; arquivos colocados direto no Drive não aparecem)',
@@ -34,7 +39,7 @@ class CloudStorage extends Model
     public const DEFAULT_SUBFOLDERS = "Petições\nDocumentos do cliente\nDecisões e publicações\nProcuração e contrato";
 
     protected $fillable = [
-        'driver', 'client_id', 'client_secret', 'tenant', 'access', 'redirect_uri', 'root_name', 'case_layout',
+        'driver', 'auth_mode', 'client_id', 'client_secret', 'tenant', 'access', 'redirect_uri', 'root_name', 'case_layout',
         'subfolders', 'auto_create', 'copy_whatsapp',
     ];
 
@@ -78,6 +83,17 @@ class CloudStorage extends Model
     public function isConnected(): bool
     {
         return filled($this->refresh_token) && filled($this->root_folder_id);
+    }
+
+    public function usesRclone(): bool
+    {
+        return $this->auth_mode !== 'app';
+    }
+
+    /** Tipo de remoto do rclone para esta nuvem. */
+    public function rcloneType(): string
+    {
+        return $this->driver === 'google' ? 'drive' : 'onedrive';
     }
 
     public function getDriverLabelAttribute(): string

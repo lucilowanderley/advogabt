@@ -97,6 +97,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/', 'settings')->name('settings');
         Route::post('/', 'save')->name('save');
         Route::get('/conectar', 'connect')->name('connect');
+        Route::post('/token', 'pasteToken')->name('token')->middleware('throttle:20,1');
+        Route::post('/rclone', 'installRclone')->name('rclone')->middleware('throttle:5,1');
         Route::post('/testar', 'test')->name('test')->middleware('throttle:20,1');
         Route::delete('/conexao', 'disconnect')->name('disconnect');
         Route::post('/pastas', 'createMissing')->name('missing')->middleware('throttle:10,1');

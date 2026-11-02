@@ -592,3 +592,6 @@ details.payload .code-block { max-height: 320px; overflow: auto; text-align: lef
   .grid-main, .grid-wide, .grid-2 { grid-template-columns: 1fr 1fr !important; }
 }
 .table th.right { text-align: right; }
+
+/* Elementos ocultos pelo atributo hidden (ex.: campos da forma de conexão da nuvem) */
+[hidden] { display: none !important; }

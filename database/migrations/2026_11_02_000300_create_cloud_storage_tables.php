@@ -12,6 +12,7 @@ return new class extends Migration
         Schema::create('cloud_storages', function (Blueprint $table) {
             $table->id();
             $table->string('driver', 20); // google | onedrive
+            $table->string('auth_mode', 10)->default('rclone'); // rclone (token do "rclone authorize") | app (app OAuth próprio)
             $table->string('client_id')->nullable(); // app do escritório no Google Cloud / Microsoft Entra
             $table->text('client_secret')->nullable(); // criptografado
             $table->string('tenant', 100)->nullable(); // Microsoft: common | organizations | consumers | id do locatário
@@ -25,6 +26,7 @@ return new class extends Migration
             $table->string('account_name')->nullable();
             $table->string('account_email')->nullable();
             $table->string('drive_id')->nullable(); // OneDrive
+            $table->string('drive_type', 20)->nullable(); // OneDrive: personal | business | documentLibrary
             $table->string('root_name')->default('ADVOGABT');
             $table->string('root_folder_id')->nullable();
             $table->string('root_folder_url', 500)->nullable();

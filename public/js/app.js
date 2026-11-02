@@ -381,4 +381,12 @@
     btn.textContent = 'Copiado!';
     setTimeout(function () { btn.innerHTML = old; }, 1500);
   });
+
+  // Arquivos na nuvem: mostra os campos da forma de conexão escolhida
+  document.querySelectorAll('[data-auth-mode]').forEach(function (sel) {
+    var apply = function () {
+      document.querySelectorAll('[data-mode]').forEach(function (el) { el.hidden = el.getAttribute('data-mode') !== sel.value; });
+    };
+    sel.addEventListener('change', apply);
+  });
 })();

@@ -9,6 +9,9 @@ use App\Models\FinancialEntry;
 use App\Models\LegalCase;
 use App\Models\Task;
 use App\Models\Webhook;
+use App\Models\WhatsappChannel;
+use App\Support\Whatsapp\WhatsappBot;
+use Illuminate\Support\Facades\Log;
 
 /** Liga os acontecimentos do sistema aos eventos de webhook. */
 class ModelEvents
@@ -32,8 +35,20 @@ class ModelEvents
                 + ['changed_fields' => $changed, 'previous' => $previous]);
         });
 
-        CaseMovement::created(fn (CaseMovement $m) => Webhooks::dispatch('andamento.criado',
-            fn () => ApiData::movement($m->fresh(['legalCase.client', 'user']) ?? $m)));
+        CaseMovement::created(function (CaseMovement $m) {
+            Webhooks::dispatch('andamento.criado', fn () => ApiData::movement($m->fresh(['legalCase.client', 'user']) ?? $m));
+
+            // WhatsApp: avisa o cliente do novo andamento, se o canal estiver configurado para isso.
+            if (! Webhooks::$muted && WhatsappChannel::active()->where('notify_movements', true)->exists()) {
+                \Illuminate\Support\defer(function () use ($m) {
+                    try {
+                        app(WhatsappBot::class)->notifyMovement($m->fresh(['legalCase.client']) ?? $m);
+                    } catch (\Throwable $e) {
+                        Log::warning('Aviso de andamento pelo WhatsApp falhou: '.$e->getMessage());
+                    }
+                });
+            }
+        });
 
         Task::created(fn (Task $t) => Webhooks::dispatch('tarefa.criada', fn () => self::task($t)));
         Task::updated(function (Task $t) {

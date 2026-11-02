@@ -56,25 +56,9 @@ class ContactController extends ApiController
         return $this->item(ApiData::contact($contact->fresh()));
     }
 
-    /**
-     * Busca por telefone/WhatsApp ignorando formatação e o 9º dígito/DDI
-     * (compara os 8 últimos dígitos), como chega de um bot de WhatsApp.
-     */
     private function wherePhone($query, string $phone): void
     {
-        $digits = preg_replace('/\D/', '', $phone);
-        if (strlen($digits) < 8) {
-            $query->whereRaw('1 = 0');
-
-            return;
-        }
-        $tail = substr($digits, -8);
-        $ids = Contact::query()
-            ->where(fn ($q) => $q->where('whatsapp', 'like', '%'.substr($tail, -4))->orWhere('phone', 'like', '%'.substr($tail, -4)))
-            ->get(['id', 'phone', 'whatsapp'])
-            ->filter(fn ($c) => str_ends_with((string) ApiData::digits($c->whatsapp), $tail) || str_ends_with((string) ApiData::digits($c->phone), $tail))
-            ->pluck('id');
-        $query->whereKey($ids);
+        $query->whereKey(Contact::idsByPhone($phone));
     }
 
     private function validated(Request $request, bool $partial = false): array

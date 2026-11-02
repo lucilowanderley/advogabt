@@ -31,7 +31,7 @@
             @foreach ($group as $key => $item)
                 @php
                     $st = Catalog::STATUS[$item['status']];
-                    $link = isset($item['route']) && auth()->user()->isAdmin() ? route($item['route']) : null;
+                    $link = isset($item['route']) && (auth()->user()->isAdmin() || ! empty($item['everyone'])) ? route($item['route']) : null;
                 @endphp
                 <div class="card integration-card {{ $item['status'] === 'breve' ? 'is-soon' : '' }}">
                     <div class="integration-head">
@@ -47,7 +47,7 @@
                         @foreach ($item['tags'] as $tag)<span class="tag">{{ $tag }}</span>@endforeach
                     </div>
                     @if ($link)
-                        <a class="btn btn-sm" href="{{ $link }}">Configurar <x-icon name="chevron-right" class="sm" /></a>
+                        <a class="btn btn-sm" href="{{ $link }}">{{ $key === 'whatsapp' ? 'Abrir' : 'Configurar' }} <x-icon name="chevron-right" class="sm" /></a>
                     @elseif ($item['status'] === 'disponivel')
                         <span class="small faint">Peça a um administrador para configurar.</span>
                     @endif

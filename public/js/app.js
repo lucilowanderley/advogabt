@@ -327,4 +327,29 @@
     var list = document.querySelector('[data-event-list]');
     box.addEventListener('change', function () { if (list) list.hidden = box.checked; });
   });
+
+  // WhatsApp: rola até o fim, Enter envia e busca mensagens novas a cada 8s
+  var wa = document.querySelector('[data-wa-messages]');
+  if (wa) {
+    wa.scrollTop = wa.scrollHeight;
+    var waInput = document.querySelector('[data-wa-input]');
+    if (waInput) {
+      waInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (waInput.value.trim()) waInput.form.submit(); }
+      });
+    }
+    setInterval(function () {
+      if (document.hidden) return;
+      fetch(wa.getAttribute('data-poll') + '?after=' + wa.getAttribute('data-last'), { headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          if (!j || !j.html) return;
+          var nearBottom = wa.scrollHeight - wa.scrollTop - wa.clientHeight < 80;
+          wa.insertAdjacentHTML('beforeend', j.html);
+          wa.setAttribute('data-last', j.last_id);
+          if (nearBottom) wa.scrollTop = wa.scrollHeight;
+        })
+        .catch(function () {});
+    }, 8000);
+  }
 })();

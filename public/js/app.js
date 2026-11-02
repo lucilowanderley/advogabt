@@ -269,5 +269,39 @@
       if (!name.dataset.touched) name.value = o.textContent.replace(/\s*\(.*\)\s*$/, '').trim();
     });
     f.querySelector('[name="name"]').addEventListener('input', function () { this.dataset.touched = '1'; });
+
+    // Carregar os modelos que a chave pode usar
+    var loadBtn = f.querySelector('[data-ai-load-models]');
+    var modelList = f.querySelector('[data-ai-model-list]');
+    var modelStatus = f.querySelector('[data-ai-models-status]');
+    if (loadBtn) {
+      loadBtn.addEventListener('click', function () {
+        var body = new FormData();
+        body.append('driver', driverSel.value);
+        body.append('base_url', f.querySelector('[name="base_url"]').value);
+        body.append('api_key', f.querySelector('[name="api_key"]').value);
+        if (loadBtn.getAttribute('data-provider-id')) body.append('provider_id', loadBtn.getAttribute('data-provider-id'));
+        loadBtn.disabled = true;
+        modelStatus.className = 'small muted';
+        modelStatus.textContent = 'Consultando o provedor...';
+        fetch(loadBtn.getAttribute('data-url'), { method: 'POST', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf }, body: body })
+          .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+          .then(function (res) {
+            var models = (res.j && res.j.models) || [];
+            modelStatus.className = 'small ' + (res.ok && models.length ? 'text-green' : 'text-red');
+            modelStatus.textContent = (res.j && res.j.message) || 'Não foi possível carregar os modelos.';
+            if (!res.ok || !models.length) { modelList.hidden = true; return; }
+            var current = f.querySelector('[name="model"]').value;
+            f.querySelector('[data-ai-models]').innerHTML = models.map(function (m) { return '<option value="' + escapeHtml(m) + '"></option>'; }).join('');
+            modelList.innerHTML = '<option value="">Escolha um modelo...</option>' + models.map(function (m) {
+              return '<option value="' + escapeHtml(m) + '"' + (m === current ? ' selected' : '') + '>' + escapeHtml(m) + '</option>';
+            }).join('');
+            modelList.hidden = false;
+          })
+          .catch(function () { modelStatus.className = 'small text-red'; modelStatus.textContent = 'Não foi possível carregar os modelos.'; })
+          .then(function () { loadBtn.disabled = false; });
+      });
+      modelList.addEventListener('change', function () { if (modelList.value) f.querySelector('[name="model"]').value = modelList.value; });
+    }
   }
 })();

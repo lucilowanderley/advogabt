@@ -36,7 +36,12 @@
         </div>
 
         <x-field name="model" label="Modelo *" col="6" hint="Escolha da lista ou digite exatamente o modelo contratado.">
-            <input type="text" name="model" id="f-model" list="ai-models" value="{{ old('model', $provider->model) }}" required maxlength="150" autocomplete="off">
+            <div class="row" style="gap: 6px">
+                <input type="text" name="model" id="f-model" list="ai-models" value="{{ old('model', $provider->model) }}" required maxlength="150" autocomplete="off">
+                <button type="button" class="btn btn-sm nowrap" data-ai-load-models data-url="{{ route('ai-providers.models') }}" data-provider-id="{{ $provider->id }}" title="Consulta o provedor com a chave informada"><x-icon name="list" class="sm" /> Carregar modelos</button>
+            </div>
+            <select style="margin-top: 6px" data-ai-model-list hidden aria-label="Modelos disponíveis"></select>
+            <div class="small" data-ai-models-status></div>
             <datalist id="ai-models" data-ai-models>
                 @foreach ($preset['models'] as $m)<option value="{{ $m }}"></option>@endforeach
             </datalist>

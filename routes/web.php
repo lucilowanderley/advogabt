@@ -53,6 +53,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/relatorios/exportar', [ReportController::class, 'export'])->name('reports.export');
 
     Route::middleware('can:admin')->group(function () {
+        Route::post('/assistente/provedores/modelos', [AiProviderController::class, 'models'])->name('ai-providers.models')->middleware('throttle:20,1');
         Route::post('/assistente/provedores/{ai_provider}/testar', [AiProviderController::class, 'test'])->name('ai-providers.test')->middleware('throttle:20,1');
         Route::patch('/assistente/provedores/{ai_provider}/padrao', [AiProviderController::class, 'makeDefault'])->name('ai-providers.default');
         Route::resource('assistente/provedores', AiProviderController::class)->parameters(['provedores' => 'ai_provider'])->except('show')->names('ai-providers');

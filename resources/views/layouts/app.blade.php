@@ -16,6 +16,7 @@
         ['route' => 'templates.index', 'match' => 'templates.*', 'icon' => 'file-text', 'label' => 'Modelos'],
         ['route' => 'reports.index', 'match' => 'reports.*', 'icon' => 'chart', 'label' => 'Relatórios / BI'],
         ['route' => 'assistant.index', 'match' => ['assistant.*', 'ai-providers.*'], 'icon' => 'sparkles', 'label' => 'Assistente IA'],
+        ['route' => 'integrations.index', 'match' => 'integrations.*', 'icon' => 'plug', 'label' => 'Integrações'],
     ];
     $me = auth()->user();
     $myOverdue = \App\Models\Task::forUser($me->id)->open()->where('due_at', '<', today())->count();
@@ -37,7 +38,7 @@
             @endforeach
 
             <div class="nav-label">Em breve</div>
-            <a href="#" onclick="return false" title="Disponível em uma próxima versão"><x-icon name="plug" /> Integrações <span class="soon">breve</span></a>
+            <a href="{{ route('integrations.index') }}" title="Bot de autoatendimento: próxima etapa das Integrações"><x-icon name="whatsapp" /> WhatsApp <span class="soon">breve</span></a>
 
             <div class="nav-label">Sistema</div>
             <a href="{{ route('profile.edit') }}" class="{{ request()->routeIs('profile.*') ? 'active' : '' }}"><x-icon name="user" /> Meu perfil</a>
@@ -105,6 +106,6 @@
         </main>
     </div>
 </div>
-<script src="{{ asset('js/app.js') }}?v=4"></script>
+<script src="{{ asset('js/app.js') }}?v=5"></script>
 </body>
 </html>

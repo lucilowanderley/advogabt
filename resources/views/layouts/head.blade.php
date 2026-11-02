@@ -9,4 +9,4 @@
 <script>
     (function () { try { var t = localStorage.getItem('advogabt-theme'); if (t) document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();
 </script>
-<link rel="stylesheet" href="{{ asset('css/app.css') }}?v=3">
+<link rel="stylesheet" href="{{ asset('css/app.css') }}?v=4">

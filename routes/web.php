@@ -8,6 +8,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentTemplateController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\FinancialEntryController;
+use App\Http\Controllers\IntegrationController;
 use App\Http\Controllers\LegalCaseController;
 use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\ProfileController;
@@ -66,6 +67,26 @@ Route::middleware('auth')->group(function () {
     Route::post('/assistente/{conversation}/mensagens', [AssistantController::class, 'send'])->whereNumber('conversation')->name('assistant.send')->middleware('throttle:30,1');
     Route::post('/assistente/{conversation}/repetir', [AssistantController::class, 'retry'])->whereNumber('conversation')->name('assistant.retry')->middleware('throttle:30,1');
     Route::post('/assistente/respostas/{message}/modelo', [AssistantController::class, 'saveTemplate'])->name('assistant.template');
+
+    Route::get('/integracoes', [IntegrationController::class, 'index'])->name('integrations.index');
+    Route::get('/integracoes/api', [IntegrationController::class, 'docs'])->name('integrations.docs');
+    Route::middleware('can:admin')->prefix('integracoes')->name('integrations.')->controller(IntegrationController::class)->group(function () {
+        Route::get('/tokens', 'tokens')->name('tokens.index');
+        Route::post('/tokens', 'storeToken')->name('tokens.store');
+        Route::delete('/tokens/{api_token}', 'revokeToken')->name('tokens.destroy');
+
+        Route::get('/webhooks', 'webhooks')->name('webhooks.index');
+        Route::get('/webhooks/novo', 'createWebhook')->name('webhooks.create');
+        Route::post('/webhooks', 'storeWebhook')->name('webhooks.store');
+        Route::get('/webhooks/{webhook}', 'showWebhook')->name('webhooks.show');
+        Route::get('/webhooks/{webhook}/editar', 'editWebhook')->name('webhooks.edit');
+        Route::put('/webhooks/{webhook}', 'updateWebhook')->name('webhooks.update');
+        Route::delete('/webhooks/{webhook}', 'destroyWebhook')->name('webhooks.destroy');
+        Route::post('/webhooks/{webhook}/testar', 'testWebhook')->name('webhooks.test')->middleware('throttle:20,1');
+        Route::post('/webhooks/{webhook}/segredo', 'rotateSecret')->name('webhooks.secret');
+        Route::post('/entregas/{delivery}/reenviar', 'redeliver')->name('deliveries.redeliver')->middleware('throttle:20,1');
+        Route::post('/rotina', 'runRoutine')->name('routine')->middleware('throttle:10,1');
+    });
 
     Route::get('/perfil', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/perfil', [ProfileController::class, 'update'])->name('profile.update');

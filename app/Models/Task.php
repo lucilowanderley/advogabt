@@ -23,6 +23,7 @@ class Task extends Model
         return [
             'due_at' => 'datetime',
             'completed_at' => 'datetime',
+            'deadline_alerted_at' => 'datetime',
             'is_deadline' => 'boolean',
         ];
     }
@@ -35,6 +36,10 @@ class Task extends Model
             }
             if ($task->status !== 'concluida') {
                 $task->completed_at = null;
+            }
+            // Novo vencimento: o aviso de "prazo vencendo" (webhook) pode ser enviado de novo.
+            if ($task->exists && $task->isDirty('due_at')) {
+                $task->deadline_alerted_at = null;
             }
         });
     }

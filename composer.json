@@ -11,6 +11,7 @@
     "license": "proprietary",
     "require": {
         "php": "^8.3",
+        "composer/ca-bundle": "^1.5",
         "laravel/framework": "^13.17",
         "laravel/tinker": "^3.0"
     },

@@ -39,6 +39,7 @@ return [
     'ai' => [
         'timeout' => (int) env('AI_TIMEOUT', 180), // segundos aguardando a resposta do provedor
         'history' => (int) env('AI_HISTORY_MESSAGES', 20), // mensagens anteriores enviadas como contexto
+        'ca_bundle' => env('AI_CA_BUNDLE'), // opcional: caminho de um cacert.pem para HTTPS
     ],
 
 ];

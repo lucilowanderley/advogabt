@@ -7,8 +7,10 @@ use App\Models\AiProvider;
 use App\Models\LegalCase;
 use App\Models\User;
 use App\Support\Ai\Drivers;
+use App\Support\Ai\LlmClient;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -224,5 +226,19 @@ class AssistantTest extends TestCase
         $page = $this->get(route('assistant.show', AiConversation::first()))->getContent();
         $this->assertStringNotContainsString('<script>alert(1)</script>', $page);
         $this->assertStringNotContainsString('href="javascript:', $page);
+    }
+
+    public function test_connection_failures_explain_the_real_cause(): void
+    {
+        $provider = $this->provider('groq');
+        Http::fake(fn () => throw new ConnectionException('cURL error 60: SSL certificate problem: unable to get local issuer certificate (see https://curl.haxx.se/libcurl/c/libcurl-errors.html)'));
+
+        $this->post(route('ai-providers.test', $provider))->assertSessionHas('error', fn ($msg) => str_contains($msg, 'certificado SSL')
+            && str_contains($msg, 'cURL error 60') && ! str_contains($msg, 'see https'));
+        $this->assertFalse($provider->fresh()->last_test_ok);
+
+        $this->assertStringContainsString('DNS', LlmClient::connectionMessage($provider, 'cURL error 6: Could not resolve host: api.groq.com'));
+        $this->assertStringContainsString('AI_TIMEOUT', LlmClient::connectionMessage($provider, 'cURL error 28: Operation timed out'));
+        $this->assertNotFalse(LlmClient::caBundle());
     }
 }

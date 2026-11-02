@@ -3,6 +3,7 @@
 namespace App\Support\Ai;
 
 use App\Models\AiProvider;
+use Composer\CaBundle\CaBundle;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -32,7 +33,7 @@ class LlmClient
                 default => $this->openai($provider, $system, $messages, $maxTokens),
             };
         } catch (ConnectionException $e) {
-            throw new AiException('Não foi possível conectar ao provedor ('.$provider->endpoint().'). Verifique a URL, a internet ou se o serviço local está rodando.', 0, $e);
+            throw new AiException(self::connectionMessage($provider, $e->getMessage()), 0, $e);
         }
     }
 
@@ -40,8 +41,50 @@ class LlmClient
     {
         return Http::timeout((int) config('services.ai.timeout', 180))
             ->connectTimeout(15)
+            ->withOptions(['verify' => self::caBundle()])
             ->acceptJson()
             ->asJson();
+    }
+
+    /**
+     * Certificados confiáveis para HTTPS. No Windows/Laragon o PHP costuma vir sem o
+     * curl.cainfo configurado, o que derruba toda conexão HTTPS (cURL error 60).
+     * Usa o arquivo de AI_CA_BUNDLE, o do sistema ou o que acompanha o composer/ca-bundle.
+     */
+    public static function caBundle(): string|bool
+    {
+        $custom = (string) config('services.ai.ca_bundle');
+        if ($custom !== '' && is_readable($custom)) {
+            return $custom;
+        }
+
+        try {
+            return CaBundle::getSystemCaRootBundlePath();
+        } catch (\Throwable) {
+            return true;
+        }
+    }
+
+    /** Explica em português a causa real de uma falha de conexão (erros do cURL). */
+    public static function connectionMessage(AiProvider $provider, string $error): string
+    {
+        $host = parse_url($provider->endpoint(), PHP_URL_HOST) ?: $provider->endpoint();
+        preg_match('/cURL error (\d+)/', $error, $m);
+        $code = (int) ($m[1] ?? 0);
+
+        $reason = match (true) {
+            in_array($code, [60, 77], true) || str_contains($error, 'SSL certificate') => 'o PHP não conseguiu validar o certificado SSL do site. No Laragon/Windows isso acontece quando o php.ini não tem o "curl.cainfo" configurado. Atualize o sistema (composer install) ou informe o caminho de um cacert.pem em AI_CA_BUNDLE no .env.',
+            $code === 6 => 'o endereço "'.$host.'" não foi encontrado (DNS). Verifique a internet do servidor e se a URL está correta.',
+            $code === 7 => 'a conexão com "'.$host.'" foi recusada. Verifique se o serviço está rodando, a porta e o firewall/antivírus.',
+            $code === 28 => 'o provedor demorou demais para responder. Tente novamente ou aumente AI_TIMEOUT no .env.',
+            in_array($code, [5, 56], true) => 'falha no proxy da rede. Verifique as configurações de proxy do servidor.',
+            in_array($code, [35, 51, 58], true) => 'falha na negociação SSL/TLS com "'.$host.'". Verifique antivírus/firewall que inspecionam HTTPS e a versão do OpenSSL do PHP.',
+            default => 'verifique a URL, a internet do servidor ou se o serviço local está rodando.',
+        };
+
+        $detail = Str::limit(trim(preg_replace('/\s*\(see https?:\/\/[^)]+\)/', '', $error)), 220);
+
+        return "Não foi possível conectar ao provedor ({$provider->endpoint()}): {$reason} Detalhe técnico: {$detail}";
     }
 
     private function anthropic(AiProvider $p, string $system, array $messages, int $maxTokens): AiReply

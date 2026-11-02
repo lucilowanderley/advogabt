@@ -55,6 +55,8 @@
             </div>
         </div>
 
+        @include('cloud._card', ['owner' => $contact, 'type' => 'contato'])
+
         <div class="card">
             <div class="card-head"><h3><x-icon name="check-square" /> Tarefas</h3></div>
             <div class="card-body flush">

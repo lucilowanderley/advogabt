@@ -277,4 +277,45 @@ class AssistantTest extends TestCase
             @unlink(CertificateStore::path());
         }
     }
+
+    public function test_lists_models_available_for_the_key(): void
+    {
+        Http::fake([
+            'api.groq.com/*' => Http::response(['data' => [['id' => 'openai/gpt-oss-120b'], ['id' => 'whisper-large-v3'], ['id' => 'llama-3.1-8b-instant']]]),
+            'api.anthropic.com/*' => Http::response(['data' => [['id' => 'claude-opus-5-5'], ['id' => 'claude-sonnet-5-5']]]),
+            'generativelanguage.googleapis.com/*' => Http::response(['models' => [
+                ['name' => 'models/gemini-2.5-pro', 'supportedGenerationMethods' => ['generateContent']],
+                ['name' => 'models/text-embedding-004', 'supportedGenerationMethods' => ['embedContent']],
+            ]]),
+            'localhost:11434/*' => Http::response(['models' => [['name' => 'llama3.1:latest']]]),
+        ]);
+
+        $this->postJson(route('ai-providers.models'), ['driver' => 'groq', 'api_key' => 'gsk_x'])
+            ->assertOk()->assertJsonPath('models', ['llama-3.1-8b-instant', 'openai/gpt-oss-120b']);
+        Http::assertSent(fn (Request $r) => $r->url() === 'https://api.groq.com/openai/v1/models' && $r->hasHeader('Authorization', 'Bearer gsk_x'));
+
+        $this->postJson(route('ai-providers.models'), ['driver' => 'anthropic', 'api_key' => 'sk-ant'])
+            ->assertOk()->assertJsonPath('models', ['claude-opus-5-5', 'claude-sonnet-5-5']);
+        $this->postJson(route('ai-providers.models'), ['driver' => 'gemini', 'api_key' => 'g'])
+            ->assertOk()->assertJsonPath('models', ['gemini-2.5-pro']);
+        $this->postJson(route('ai-providers.models'), ['driver' => 'ollama'])
+            ->assertOk()->assertJsonPath('models', ['llama3.1:latest']);
+
+        // Usa a chave já salva quando o campo fica em branco
+        $saved = $this->provider('anthropic', ['api_key' => 'sk-salva']);
+        $this->postJson(route('ai-providers.models'), ['driver' => 'anthropic', 'provider_id' => $saved->id])->assertOk();
+        Http::assertSent(fn (Request $r) => str_contains($r->url(), 'anthropic.com/v1/models') && $r->hasHeader('x-api-key', 'sk-salva'));
+    }
+
+    public function test_model_not_found_shows_available_models(): void
+    {
+        $provider = $this->provider('groq', ['model' => 'llama-3.3-70b-versatile']);
+        Http::fake([
+            'api.groq.com/openai/v1/chat/completions' => Http::response(['error' => ['message' => 'The model `llama-3.3-70b-versatile` does not exist or you do not have access to it.']], 404),
+            'api.groq.com/openai/v1/models' => Http::response(['data' => [['id' => 'openai/gpt-oss-120b']]]),
+        ]);
+
+        $this->post(route('ai-providers.test', $provider))
+            ->assertSessionHas('error', fn ($m) => str_contains($m, 'Modelos disponíveis para esta chave: openai/gpt-oss-120b'));
+    }
 }

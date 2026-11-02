@@ -32,6 +32,58 @@ class LlmClient
             default => $this->openai($provider, $system, $messages, $maxTokens),
         };
 
+        return $this->run($provider, $send);
+    }
+
+    /**
+     * Modelos disponíveis para a chave informada (consulta a API do provedor).
+     *
+     * @return list<string>
+     */
+    public function models(AiProvider $provider): array
+    {
+        return $this->run($provider, function () use ($provider) {
+            $base = $provider->endpoint();
+            $request = $this->http($provider);
+
+            if ($provider->protocol === 'azure') {
+                throw new AiException('No Azure OpenAI o "modelo" é o nome do deployment criado no portal do Azure; não há lista para carregar.');
+            }
+
+            if ($provider->protocol === 'anthropic') {
+                $url = (str_ends_with($base, '/v1') ? $base : $base.'/v1').'/models?limit=100';
+                $response = $request->withHeaders(['x-api-key' => (string) $provider->api_key, 'anthropic-version' => self::ANTHROPIC_VERSION])->get($url);
+                $this->guard($provider, $response);
+                $ids = collect($response->json('data', []))->pluck('id');
+            } elseif ($provider->protocol === 'gemini') {
+                $response = $request->withHeaders(['x-goog-api-key' => (string) $provider->api_key])->get($base.'/models', ['pageSize' => 200]);
+                $this->guard($provider, $response);
+                $ids = collect($response->json('models', []))
+                    ->filter(fn ($m) => in_array('generateContent', $m['supportedGenerationMethods'] ?? [], true))
+                    ->map(fn ($m) => preg_replace('#^models/#', '', $m['name'] ?? ''));
+            } elseif ($provider->protocol === 'ollama') {
+                $response = $request->get($base.'/api/tags');
+                $this->guard($provider, $response);
+                $ids = collect($response->json('models', []))->pluck('name');
+            } else {
+                if ($provider->api_key) {
+                    $request = $request->withToken((string) $provider->api_key);
+                }
+                $response = $request->get($base.'/models');
+                $this->guard($provider, $response);
+                $ids = collect($response->json('data', []))->filter(fn ($m) => ($m['active'] ?? true) !== false)->pluck('id');
+            }
+
+            // Remove modelos que não servem para conversa (áudio, imagem, embeddings, moderação).
+            return $ids->filter(fn ($id) => is_string($id) && $id !== ''
+                && ! preg_match('/whisper|tts|embed|moderation|dall-e|guard|transcri|audio|image|realtime|search-preview/i', $id))
+                ->unique()->sort()->values()->all();
+        });
+    }
+
+    /** Executa a chamada tratando falhas de conexão (inclusive HTTPS interceptado no Windows). */
+    private function run(AiProvider $provider, callable $send): mixed
+    {
         try {
             return $send();
         } catch (ConnectionException $e) {

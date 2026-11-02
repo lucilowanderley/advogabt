@@ -7,6 +7,7 @@ use App\Models\AiProvider;
 use App\Support\Ai\AiException;
 use App\Support\Ai\Drivers;
 use App\Support\Ai\LlmClient;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -104,9 +105,53 @@ class AiProviderController extends Controller
             return back()->with('success', "Conexão com \"{$aiProvider->name}\" funcionando (modelo {$reply->model}).");
         } catch (AiException $e) {
             $aiProvider->forceFill(['last_tested_at' => now(), 'last_test_ok' => false])->save();
+            $message = "Falha ao testar \"{$aiProvider->name}\": ".$e->getMessage();
 
-            return back()->with('error', "Falha ao testar \"{$aiProvider->name}\": ".$e->getMessage());
+            // Modelo inexistente: mostra os que a chave pode usar.
+            if (str_contains($e->getMessage(), 'HTTP 404')) {
+                try {
+                    $models = $client->models($aiProvider);
+                    if ($models) {
+                        $message .= ' Modelos disponíveis para esta chave: '.implode(', ', array_slice($models, 0, 20)).(count($models) > 20 ? '…' : '').'. Edite o provedor e escolha um deles.';
+                    }
+                } catch (AiException) {
+                    // mantém só a mensagem original
+                }
+            }
+
+            return back()->with('error', $message);
         }
+    }
+
+    /** Lista os modelos que a chave informada (ou a já salva) pode usar. */
+    public function models(Request $request, LlmClient $client): JsonResponse
+    {
+        $data = $request->validate([
+            'driver' => ['required', Rule::in(array_keys(Drivers::ALL))],
+            'base_url' => ['nullable', 'url:http,https', 'max:255'],
+            'api_key' => ['nullable', 'string', 'max:500'],
+            'provider_id' => ['nullable', 'integer', 'exists:ai_providers,id'],
+        ]);
+        @set_time_limit(60);
+
+        $saved = isset($data['provider_id']) ? AiProvider::find($data['provider_id']) : null;
+        $provider = new AiProvider([
+            'driver' => $data['driver'],
+            'base_url' => $data['base_url'] ?? null,
+            'api_key' => filled($data['api_key'] ?? null) ? trim($data['api_key']) : $saved?->api_key,
+            'model' => '-',
+        ]);
+
+        try {
+            $models = $client->models($provider);
+        } catch (AiException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'models' => $models,
+            'message' => $models ? count($models).' modelo(s) disponível(is) para esta chave.' : 'O provedor não retornou modelos para esta chave.',
+        ]);
     }
 
     private function validated(Request $request, ?AiProvider $provider = null): array

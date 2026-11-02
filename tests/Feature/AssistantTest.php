@@ -6,6 +6,7 @@ use App\Models\AiConversation;
 use App\Models\AiProvider;
 use App\Models\LegalCase;
 use App\Models\User;
+use App\Support\Ai\CertificateStore;
 use App\Support\Ai\Drivers;
 use App\Support\Ai\LlmClient;
 use Database\Seeders\DatabaseSeeder;
@@ -14,6 +15,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Process;
 use Tests\TestCase;
 
 class AssistantTest extends TestCase
@@ -240,5 +242,39 @@ class AssistantTest extends TestCase
         $this->assertStringContainsString('DNS', LlmClient::connectionMessage($provider, 'cURL error 6: Could not resolve host: api.groq.com'));
         $this->assertStringContainsString('AI_TIMEOUT', LlmClient::connectionMessage($provider, 'cURL error 28: Operation timed out'));
         $this->assertNotFalse(LlmClient::caBundle());
+    }
+
+    public function test_windows_certificates_are_imported_when_https_is_intercepted(): void
+    {
+        CertificateStore::$windows = true;
+        @unlink(CertificateStore::path());
+        $provider = $this->provider('groq');
+
+        Process::fake([
+            '*' => Process::result("-----BEGIN CERTIFICATE-----\r\nQUJD\r\n-----END CERTIFICATE-----\r\n"),
+        ]);
+        $calls = 0;
+        Http::fake(function () use (&$calls) {
+            if (++$calls === 1) {
+                throw new ConnectionException('cURL error 60: SSL certificate OpenSSL verify result: self-signed certificate in certificate chain (19)');
+            }
+
+            return Http::response(['choices' => [['message' => ['content' => 'Conexão OK']]]]);
+        });
+
+        try {
+            $this->post(route('ai-providers.test', $provider))->assertSessionHas('success');
+            $this->assertSame(2, $calls);
+            $this->assertSame(CertificateStore::path(), LlmClient::caBundle());
+            $this->assertStringContainsString('QUJD', file_get_contents(CertificateStore::path()));
+            Process::assertRan(fn ($process) => str_contains(implode(' ', (array) $process->command), 'Cert:'));
+
+            // Se continuar falhando, a mensagem explica a interceptação (antivírus/proxy)
+            $message = LlmClient::connectionMessage($provider, 'cURL error 60: SSL certificate OpenSSL verify result: self-signed certificate in certificate chain (19)');
+            $this->assertStringContainsString('antivírus', $message);
+        } finally {
+            CertificateStore::$windows = null;
+            @unlink(CertificateStore::path());
+        }
     }
 }

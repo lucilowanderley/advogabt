@@ -15,6 +15,7 @@
         ['route' => 'finance.index', 'match' => 'finance.*', 'icon' => 'wallet', 'label' => 'Financeiro'],
         ['route' => 'templates.index', 'match' => 'templates.*', 'icon' => 'file-text', 'label' => 'Modelos'],
         ['route' => 'reports.index', 'match' => 'reports.*', 'icon' => 'chart', 'label' => 'Relatórios / BI'],
+        ['route' => 'assistant.index', 'match' => ['assistant.*', 'ai-providers.*'], 'icon' => 'sparkles', 'label' => 'Assistente IA'],
     ];
     $me = auth()->user();
     $myOverdue = \App\Models\Task::forUser($me->id)->open()->where('due_at', '<', today())->count();
@@ -36,7 +37,6 @@
             @endforeach
 
             <div class="nav-label">Em breve</div>
-            <a href="#" onclick="return false" title="Disponível em uma próxima versão"><x-icon name="sparkles" /> Assistente IA <span class="soon">breve</span></a>
             <a href="#" onclick="return false" title="Disponível em uma próxima versão"><x-icon name="plug" /> Integrações <span class="soon">breve</span></a>
 
             <div class="nav-label">Sistema</div>
@@ -105,6 +105,6 @@
         </main>
     </div>
 </div>
-<script src="{{ asset('js/app.js') }}?v=2"></script>
+<script src="{{ asset('js/app.js') }}?v=3"></script>
 </body>
 </html>

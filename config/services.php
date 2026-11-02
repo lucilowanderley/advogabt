@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    // Assistente IA: provedores, chaves e modelos são cadastrados na tela Assistente IA > Provedores.
+    'ai' => [
+        'timeout' => (int) env('AI_TIMEOUT', 180), // segundos aguardando a resposta do provedor
+        'history' => (int) env('AI_HISTORY_MESSAGES', 20), // mensagens anteriores enviadas como contexto
+    ],
+
 ];

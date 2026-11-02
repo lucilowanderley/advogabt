@@ -14,11 +14,12 @@ Sistema de gestão para escritórios de advocacia, feito em **PHP 8.3+ / Laravel
 | **Parceiros** | Correspondentes, indicadores e peritos, com percentual de comissão, processos vinculados e repasses pagos/em aberto. |
 | **Financeiro** | Contas a receber e a pagar por mês, parcelamento automático, baixa/estorno com um clique, inadimplência e receitas por categoria. |
 | **Modelos** | Procurações, contratos, declarações e petições com variáveis (`{{cliente.nome}}`, `{{processo.numero}}`, `{{advogado.oab}}`...) preenchidas automaticamente, prontas para imprimir ou salvar em PDF. |
+| **Assistente IA** | Conversas com a IA contratada pelo escritório, com os dados do processo ou do contato no contexto (andamentos, prazos, compromissos, qualificação). Atalhos para resumo, próximos passos, riscos, mensagem ao cliente, minutas e prazos. Respostas podem ser copiadas ou salvas como modelo. Funciona com Claude (Anthropic, recomendado), OpenAI, Azure OpenAI, Gemini, Mistral, DeepSeek, Groq, OpenRouter, Ollama (local) e qualquer serviço compatível com a OpenAI; cada provedor mostra se é grátis ou comercial. Chaves criptografadas, provedor padrão, teste de conexão e consumo de tokens no mês (Assistente IA › Provedores, só administradores). |
 | **Usuários** | Perfis (administrador, advogado, estagiário, financeiro, secretaria), ativação e cor do avatar. |
 
 Interface em português, tema escuro (padrão) e claro, responsiva para celular. Não precisa de Node/NPM: o CSS e o JavaScript ficam prontos em `public/`.
 
-Próximas fases previstas: assistente com IA, relatórios/BI e integrações (tribunais, e-mail, WhatsApp, Google Agenda).
+Próxima fase prevista: integrações (tribunais, e-mail, WhatsApp, Google Agenda).
 
 ## Instalação (Laragon / Windows)
 

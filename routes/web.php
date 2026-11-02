@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\AiProviderController;
+use App\Http\Controllers\AssistantController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
@@ -49,6 +51,20 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/relatorios', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/relatorios/exportar', [ReportController::class, 'export'])->name('reports.export');
+
+    Route::middleware('can:admin')->group(function () {
+        Route::post('/assistente/provedores/{ai_provider}/testar', [AiProviderController::class, 'test'])->name('ai-providers.test')->middleware('throttle:20,1');
+        Route::patch('/assistente/provedores/{ai_provider}/padrao', [AiProviderController::class, 'makeDefault'])->name('ai-providers.default');
+        Route::resource('assistente/provedores', AiProviderController::class)->parameters(['provedores' => 'ai_provider'])->except('show')->names('ai-providers');
+    });
+    Route::get('/assistente', [AssistantController::class, 'index'])->name('assistant.index');
+    Route::post('/assistente', [AssistantController::class, 'store'])->name('assistant.store')->middleware('throttle:30,1');
+    Route::get('/assistente/{conversation}', [AssistantController::class, 'show'])->whereNumber('conversation')->name('assistant.show');
+    Route::patch('/assistente/{conversation}', [AssistantController::class, 'update'])->whereNumber('conversation')->name('assistant.update');
+    Route::delete('/assistente/{conversation}', [AssistantController::class, 'destroy'])->whereNumber('conversation')->name('assistant.destroy');
+    Route::post('/assistente/{conversation}/mensagens', [AssistantController::class, 'send'])->whereNumber('conversation')->name('assistant.send')->middleware('throttle:30,1');
+    Route::post('/assistente/{conversation}/repetir', [AssistantController::class, 'retry'])->whereNumber('conversation')->name('assistant.retry')->middleware('throttle:30,1');
+    Route::post('/assistente/respostas/{message}/modelo', [AssistantController::class, 'saveTemplate'])->name('assistant.template');
 
     Route::get('/perfil', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/perfil', [ProfileController::class, 'update'])->name('profile.update');

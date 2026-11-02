@@ -42,4 +42,12 @@ return [
         'ca_bundle' => env('AI_CA_BUNDLE'), // opcional: caminho de um cacert.pem para HTTPS
     ],
 
+    // Integrações: API REST e webhooks (tela Integrações).
+    'integrations' => [
+        'deadline_days' => (int) env('INTEGRATIONS_DEADLINE_DAYS', 3), // antecedência do evento prazo.vencendo
+        'webhook_timeout' => (int) env('INTEGRATIONS_WEBHOOK_TIMEOUT', 15), // segundos aguardando o destino
+        'api_rate_limit' => (int) env('INTEGRATIONS_API_RATE_LIMIT', 120), // chamadas por minuto por token
+        'web_routine' => (bool) env('INTEGRATIONS_WEB_ROUTINE', true), // roda a rotina pelo uso do sistema quando não há agendador
+    ],
+
 ];

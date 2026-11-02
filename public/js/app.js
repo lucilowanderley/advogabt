@@ -304,4 +304,27 @@
       modelList.addEventListener('change', function () { if (modelList.value) f.querySelector('[name="model"]').value = modelList.value; });
     }
   }
+
+  // Integrações: copiar token/segredo
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-copy]');
+    if (!btn) return;
+    var src = btn.parentElement.querySelector('[data-copy-source]');
+    if (!src) return;
+    var text = src.textContent.trim();
+    var done = function () { var old = btn.innerHTML; btn.textContent = 'Copiado!'; setTimeout(function () { btn.innerHTML = old; }, 1500); };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done);
+    } else {
+      var range = document.createRange(); range.selectNodeContents(src);
+      var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(range);
+      try { document.execCommand('copy'); done(); } catch (err) {}
+    }
+  });
+
+  // Integrações: "Todos os eventos" esconde a lista de eventos
+  document.querySelectorAll('[data-all-events]').forEach(function (box) {
+    var list = document.querySelector('[data-event-list]');
+    box.addEventListener('change', function () { if (list) list.hidden = box.checked; });
+  });
 })();

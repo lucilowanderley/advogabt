@@ -1,8 +1,10 @@
 <?php
 
 use App\Support\Ai\CertificateStore;
+use App\Support\Integrations\Routine;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -20,3 +22,13 @@ Artisan::command('ai:certificados', function () {
 
     return 0;
 })->purpose('Importa os certificados raiz do Windows para as conexões HTTPS do Assistente IA');
+
+// Integrações: avisa prazos vencendo (webhook prazo.vencendo) e reenvia webhooks que falharam.
+Artisan::command('integracoes:rotina', function () {
+    $result = Routine::run();
+    $this->info("Prazos avisados: {$result['deadlines']} · Webhooks reenviados: {$result['retried']}");
+
+    return 0;
+})->purpose('Envia os avisos de prazo vencendo e reenvia os webhooks que falharam');
+
+Schedule::command('integracoes:rotina')->everyFifteenMinutes()->withoutOverlapping();

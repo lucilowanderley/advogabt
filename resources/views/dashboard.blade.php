@@ -14,6 +14,10 @@
     </div>
 </div>
 
+@foreach ($security ?? [] as $warning)
+    <div class="alert error mb"><x-icon name="alert" /> {{ $warning }}</div>
+@endforeach
+
 <div class="grid grid-4 mb">
     <a class="card kpi" href="{{ route('cases.index') }}">
         <div class="kpi-icon"><x-icon name="scale" /></div>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
@@ -34,6 +35,7 @@ class ProfileController extends Controller
         unset($data['current_password']);
         $data['color'] = $data['color'] ?? $user->color;
         $user->update($data);
+        Cache::forget('security-default-passwords');
 
         return back()->with('success', 'Perfil atualizado.');
     }

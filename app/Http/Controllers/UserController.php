@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Support\Options;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
@@ -25,6 +26,7 @@ class UserController extends Controller
     public function store(Request $request): RedirectResponse
     {
         User::create($this->validated($request));
+        Cache::forget('security-default-passwords');
 
         return redirect()->route('users.index')->with('success', 'Usuário criado.');
     }
@@ -43,6 +45,7 @@ class UserController extends Controller
             $data['active'] = true;
         }
         $user->update($data);
+        Cache::forget('security-default-passwords');
 
         return redirect()->route('users.index')->with('success', 'Usuário atualizado.');
     }
@@ -53,6 +56,7 @@ class UserController extends Controller
             return back()->with('error', 'Você não pode excluir o seu próprio usuário.');
         }
         $user->delete();
+        Cache::forget('security-default-passwords');
 
         return redirect()->route('users.index')->with('success', 'Usuário excluído.');
     }

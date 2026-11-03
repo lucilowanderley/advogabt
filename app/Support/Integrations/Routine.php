@@ -32,6 +32,11 @@ class Routine
         if (! Cache::add('integrations-routine', true, now()->addMinutes(15))) {
             return;
         }
+        // No Apache do Laragon (mod_php) não existe "depois da resposta": quem abriu a página
+        // esperaria as consultas a bancos e tribunais. Ali a rotina roda em um processo separado.
+        if (! function_exists('fastcgi_finish_request') && ! app()->runningUnitTests() && self::spawn()) {
+            return;
+        }
         $run = function () {
             try {
                 self::run();
@@ -40,5 +45,50 @@ class Routine
             }
         };
         function_exists('Illuminate\Support\defer') ? \Illuminate\Support\defer($run) : app()->terminating($run);
+    }
+
+    /** Executável do PHP de linha de comando (no mod_php o PHP_BINARY é o httpd.exe). */
+    public static function phpBinary(): ?string
+    {
+        $windows = PHP_OS_FAMILY === 'Windows';
+        $candidates = [PHP_BINARY];
+        if ($ini = php_ini_loaded_file()) {
+            $candidates[] = dirname($ini).DIRECTORY_SEPARATOR.($windows ? 'php.exe' : 'php');
+        }
+        $candidates[] = PHP_BINDIR.DIRECTORY_SEPARATOR.($windows ? 'php.exe' : 'php');
+        foreach (array_unique(array_filter($candidates)) as $bin) {
+            if (is_file($bin) && preg_match('/^php(\d[\d.]*)?(\.exe)?$/', strtolower(basename($bin)))) {
+                return $bin;
+            }
+        }
+
+        return null;
+    }
+
+    /** Dispara "php artisan integracoes:rotina" em segundo plano. Devolve false se não deu. */
+    private static function spawn(): bool
+    {
+        $php = self::phpBinary();
+        if (! $php || ! function_exists('popen')) {
+            return false;
+        }
+        $artisan = base_path('artisan');
+        try {
+            if (PHP_OS_FAMILY === 'Windows') {
+                $handle = popen('start "" /B "'.$php.'" "'.$artisan.'" integracoes:rotina > NUL 2>&1', 'r');
+            } else {
+                $handle = popen(escapeshellarg($php).' '.escapeshellarg($artisan).' integracoes:rotina > /dev/null 2>&1 &', 'r');
+            }
+            if ($handle === false) {
+                return false;
+            }
+            pclose($handle);
+
+            return true;
+        } catch (\Throwable $e) {
+            Log::warning('Rotina de integrações não iniciada em segundo plano: '.$e->getMessage());
+
+            return false;
+        }
     }
 }

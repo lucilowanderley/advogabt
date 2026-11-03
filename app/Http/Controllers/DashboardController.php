@@ -9,6 +9,8 @@ use App\Models\LegalCase;
 use App\Models\Task;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -74,6 +76,26 @@ class DashboardController extends Controller
             ];
         });
 
-        return view('dashboard', compact('stats', 'finance', 'todayEvents', 'upcomingEvents', 'deadlines', 'myOpenTasks', 'ranking', 'chart'));
+        $security = $user->isAdmin() ? self::securityWarnings() : [];
+
+        return view('dashboard', compact('stats', 'finance', 'todayEvents', 'upcomingEvents', 'deadlines', 'myOpenTasks', 'ranking', 'chart', 'security'));
+    }
+
+    /** Senha padrão "advogabt" (administrador e usuários de demonstração) e modo de depuração ligado. */
+    public static function securityWarnings(): array
+    {
+        $weak = Cache::remember('security-default-passwords', now()->addMinutes(10), fn () => User::where('active', true)->get(['id', 'name', 'email', 'password'])
+            ->filter(fn (User $u) => Hash::check('advogabt', (string) $u->password))
+            ->map(fn (User $u) => $u->email)->values()->all());
+
+        $warnings = [];
+        if ($weak) {
+            $warnings[] = 'Usuário(s) ativo(s) ainda com a senha padrão "advogabt": '.implode(', ', $weak).'. Troque a senha ou desative quem não usa (os usuários ana@, bruno@ e carla@ são de demonstração).';
+        }
+        if (config('app.debug') && ! app()->environment('local', 'testing')) {
+            $warnings[] = 'O modo de depuração está ligado (APP_DEBUG=true). Em um sistema acessível pela internet, deixe APP_DEBUG=false no .env.';
+        }
+
+        return $warnings;
     }
 }

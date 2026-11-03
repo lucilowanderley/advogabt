@@ -140,7 +140,7 @@ class BillingTest extends TestCase
         $this->fakeAsaas($status);
         $this->actingAs($this->admin)->post(route('billing.providers.save', 'asaas'), [
             'environment' => 'sandbox', 'api_key' => '$aact_hmlg_abc', 'fine_percent' => '2,00', 'interest_percent' => '1', 'active' => 1, 'is_default' => 1, 'notify_customer' => 1,
-        ])->assertRedirect(route('billing.settings'));
+        ])->assertRedirect(route('billing.settings', ['conta' => 'asaas']));
         $p = BillingProvider::forDriver('asaas');
         $this->assertSame('$aact_hmlg_abc', $p->api_key);
         $this->assertNotSame('$aact_hmlg_abc', $p->getRawOriginal('api_key'), 'a chave fica criptografada');
@@ -340,7 +340,7 @@ class BillingTest extends TestCase
         $this->actingAs($this->admin)->post(route('billing.providers.save', 'inter'), [
             'environment' => 'producao', 'client_id' => 'abc', 'client_secret' => 'def', 'certificate_file' => $crt, 'private_key_file' => $key,
             'fine_percent' => '2', 'interest_percent' => '1', 'active' => 1,
-        ])->assertRedirect(route('billing.settings'));
+        ])->assertRedirect(route('billing.settings', ['conta' => 'inter']));
         $p = BillingProvider::forDriver('inter');
         $this->assertTrue($p->isConfigured());
         $this->assertStringContainsString('BEGIN CERTIFICATE', $p->certificate);

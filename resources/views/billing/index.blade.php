@@ -80,11 +80,19 @@
             @endif
         </div>
     </div>
+    <form method="post" action="{{ route('billing.return') }}" enctype="multipart/form-data" class="card">
+        @csrf
+        <div class="card-head"><h3><x-icon name="download" /> Retorno do banco (CNAB 240)</h3></div>
+        <div class="card-body small">
+            <p class="muted" style="margin-top: 0">Baixe no internet banking o arquivo de retorno da cobrança e envie aqui: os boletos pagos são baixados no Financeiro. Serve para qualquer banco, mesmo sem API.</p>
+            <div class="row" style="gap: 6px"><input type="file" name="file" required accept=".ret,.txt,.RET,.TXT,.rem,.cnab" style="flex: 1; min-width: 0"><button class="btn btn-sm"><x-icon name="check" class="sm" /> Importar</button></div>
+        </div>
+    </form>
     <div class="card">
         <div class="card-head"><h3><x-icon name="book" /> Como funciona</h3></div>
         <div class="card-body small muted">
             <p style="margin-top: 0"><strong>1.</strong> Lance os honorários no Financeiro (com o cliente) e clique em <em>Cobrar</em>. Parcelas viram uma cobrança cada.</p>
-            <p><strong>2.</strong> O sistema gera o boleto com Pix no Asaas ou no Banco Inter. Mande o link, a linha digitável ou o Pix copia e cola pelo WhatsApp com um clique.</p>
+            <p><strong>2.</strong> O sistema gera o boleto com Pix no Asaas ou no banco do escritório (Inter, BB, Itaú, Bradesco, Santander, Caixa, Sicoob ou Sicredi). Mande o link, a linha digitável ou o Pix copia e cola pelo WhatsApp com um clique.</p>
             <p style="margin-bottom: 0"><strong>3.</strong> Quando o cliente paga, o lançamento é baixado sozinho, o webhook <code>pagamento.recebido</code> avisa as automações e, se ligado, a NFS-e é emitida.</p>
         </div>
     </div>

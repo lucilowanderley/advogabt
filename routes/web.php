@@ -70,6 +70,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/{charge}/atualizar', 'refresh')->whereNumber('charge')->name('refresh')->middleware('throttle:30,1');
         Route::post('/{charge}/cancelar', 'cancel')->whereNumber('charge')->name('cancel')->middleware('throttle:20,1');
         Route::get('/{charge}/boleto', 'pdf')->whereNumber('charge')->name('pdf')->middleware('throttle:30,1');
+        Route::post('/retorno', 'importReturn')->name('return')->middleware('throttle:10,1');
         Route::get('/notas', 'invoices')->name('invoices');
         Route::post('/notas', 'storeInvoice')->name('invoices.store')->middleware('throttle:20,1');
         Route::post('/notas/{invoice}/atualizar', 'refreshInvoice')->whereNumber('invoice')->name('invoices.refresh')->middleware('throttle:30,1');
@@ -81,9 +82,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/nfse/servicos', 'services')->name('nfse.services')->middleware('throttle:20,1');
         Route::post('/nfse/testar', 'testNfse')->name('nfse.test')->middleware('throttle:20,1');
         Route::post('/inter/aviso', 'registerWebhook')->name('webhook.register')->middleware('throttle:10,1');
-        Route::post('/{driver}', 'saveProvider')->where('driver', 'asaas|inter')->name('providers.save');
-        Route::post('/{driver}/testar', 'testProvider')->where('driver', 'asaas|inter')->name('providers.test')->middleware('throttle:20,1');
-        Route::delete('/{driver}', 'disconnect')->where('driver', 'asaas|inter')->name('providers.destroy');
+        Route::post('/{driver}', 'saveProvider')->where('driver', 'asaas|inter|bb|itau|bradesco|santander|sicoob|sicredi|caixa')->name('providers.save');
+        Route::post('/{driver}/testar', 'testProvider')->where('driver', 'asaas|inter|bb|itau|bradesco|santander|sicoob|sicredi|caixa')->name('providers.test')->middleware('throttle:20,1');
+        Route::delete('/{driver}', 'disconnect')->where('driver', 'asaas|inter|bb|itau|bradesco|santander|sicoob|sicredi|caixa')->name('providers.destroy');
     });
 
     Route::get('/modelos/{template}/gerar', [DocumentTemplateController::class, 'generate'])->name('templates.generate');

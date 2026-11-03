@@ -7,7 +7,6 @@ use App\Models\BillingProvider;
 use App\Models\Contact;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 /**
@@ -26,7 +25,7 @@ class InterDriver extends Driver
 
     public function test(BillingProvider $p): string
     {
-        Cache::forget($this->tokenKey($p));
+        $this->forgetToken($p);
         $this->send($p, fn (PendingRequest $h) => $h->get($this->url($p, 'cobranca/v3/cobrancas'), [
             'dataInicial' => today()->subDays(7)->format('Y-m-d'),
             'dataFinal' => today()->format('Y-m-d'),
@@ -38,37 +37,25 @@ class InterDriver extends Driver
 
     public function create(BillingProvider $p, BillingCharge $c, Contact $payer): void
     {
-        $doc = self::payerDocument($payer);
-        $missing = array_keys(array_filter([
-            'endereço' => blank($payer->address),
-            'cidade' => blank($payer->city),
-            'UF' => blank($payer->state),
-            'CEP' => strlen(self::digits($payer->zip_code)) !== 8,
-        ]));
-        if ($missing) {
-            throw new BillingException('O Banco Inter exige o endereço completo do pagador. Complete na ficha de '.$payer->name.': '.implode(', ', $missing).'.');
-        }
-        $phone = self::digits($payer->whatsapp ?: $payer->phone);
-        if (strlen($phone) > 11) {
-            $phone = substr($phone, -11);
-        }
+        $payer = self::payer($payer, 'Banco Inter');
 
         $payload = [
-            'seuNumero' => substr('ADV'.$c->id, 0, 15),
+            'seuNumero' => substr(self::seuNumero($c), 0, 15),
             'valorNominal' => round((float) $c->amount, 2),
             'dataVencimento' => $c->due_date->format('Y-m-d'),
             'numDiasAgenda' => 30,
             'pagador' => array_filter([
-                'cpfCnpj' => $doc,
-                'tipoPessoa' => strlen($doc) === 14 ? 'JURIDICA' : 'FISICA',
-                'nome' => Str::limit($payer->name, 100, ''),
-                'endereco' => Str::limit((string) $payer->address, 90, ''),
-                'cidade' => Str::limit((string) $payer->city, 60, ''),
-                'uf' => strtoupper((string) $payer->state),
-                'cep' => self::digits($payer->zip_code),
-                'email' => $payer->email ?: null,
-                'ddd' => strlen($phone) >= 10 ? substr($phone, 0, 2) : null,
-                'telefone' => strlen($phone) >= 10 ? substr($phone, 2) : null,
+                'cpfCnpj' => $payer['doc'],
+                'tipoPessoa' => $payer['pj'] ? 'JURIDICA' : 'FISICA',
+                'nome' => $payer['name'],
+                'endereco' => $payer['address'],
+                'bairro' => $payer['district'],
+                'cidade' => $payer['city'],
+                'uf' => $payer['uf'],
+                'cep' => $payer['cep'],
+                'email' => $payer['email'],
+                'ddd' => $payer['ddd'],
+                'telefone' => $payer['phone'],
             ], fn ($v) => $v !== null && $v !== ''),
             'mensagem' => ['linha1' => Str::limit($c->description, 78, '')],
         ];
@@ -166,53 +153,12 @@ class InterDriver extends Driver
 
     private function token(BillingProvider $p, array $tls): string
     {
-        $cached = Cache::get($this->tokenKey($p));
-        if ($cached) {
-            return $cached;
-        }
-        $r = $this->call($p, fn () => $this->http()->withOptions($tls)->asForm()->post($this->url($p, 'oauth/v2/token'), [
+        return $this->oauthToken($p, fn () => $this->http()->withOptions($tls)->asForm()->post($this->url($p, 'oauth/v2/token'), [
             'client_id' => (string) $p->client_id,
             'client_secret' => (string) $p->client_secret,
             'grant_type' => 'client_credentials',
             'scope' => self::SCOPES,
         ]));
-        if (! $r->successful()) {
-            $detail = $r->json('error_description') ?? $r->json('title') ?? $r->json('error') ?? Str::limit(strip_tags($r->body()), 200);
-            throw new BillingException('O Banco Inter recusou a autenticação (HTTP '.$r->status().': '.(is_string($detail) ? $detail : json_encode($detail)).'). '
-                .'Confira o Client ID, o Client Secret, o certificado e a chave, e se a integração tem as permissões de boleto e é do ambiente escolhido.');
-        }
-        $token = (string) $r->json('access_token');
-        if ($token === '') {
-            throw new BillingException('O Banco Inter não devolveu o token de acesso.');
-        }
-        Cache::put($this->tokenKey($p), $token, now()->addSeconds(max(60, (int) $r->json('expires_in', 3600) - 120)));
-
-        return $token;
-    }
-
-    private function withCertificate(BillingProvider $p, callable $fn): mixed
-    {
-        $dir = storage_path('app/private/billing-tmp');
-        if (! is_dir($dir)) {
-            @mkdir($dir, 0700, true);
-        }
-        $cert = $dir.'/'.Str::random(24).'.crt';
-        $key = $dir.'/'.Str::random(24).'.key';
-        file_put_contents($cert, (string) $p->certificate);
-        file_put_contents($key, (string) $p->private_key);
-        @chmod($cert, 0600);
-        @chmod($key, 0600);
-        try {
-            return $fn(['cert' => $cert, 'ssl_key' => $key]);
-        } finally {
-            @unlink($cert);
-            @unlink($key);
-        }
-    }
-
-    private function tokenKey(BillingProvider $p): string
-    {
-        return 'inter-token-'.$p->id.'-'.md5($p->environment.'|'.$p->client_id.'|'.$p->updated_at);
     }
 
     private function url(BillingProvider $p, string $path): string

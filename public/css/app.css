@@ -603,3 +603,7 @@ details.payload .code-block { max-height: 320px; overflow: auto; text-align: lef
 .option-card:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
 .signer-row { padding: 12px; border: 1px solid var(--border-soft); border-radius: 10px; }
 .doc-editor { font-family: "Times New Roman", Georgia, serif; font-size: 15px; line-height: 1.6; min-height: 360px; }
+.bank-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.bank-chip { display: flex; flex-direction: column; gap: 2px; padding: 9px 12px; border: 1px solid var(--border-soft); border-radius: 10px; background: var(--panel-2); color: var(--text); }
+.bank-chip:hover { border-color: var(--accent); }
+.bank-chip.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }

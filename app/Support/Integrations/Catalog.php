@@ -68,7 +68,7 @@ class Catalog
             'admin_route' => 'billing.settings',
             'everyone' => true,
             'description' => 'Boleto e Pix para os honorários direto do Financeiro, baixa automática quando o cliente paga e emissão da NFS-e, com o link de pagamento pronto para mandar pelo WhatsApp.',
-            'tags' => ['Asaas', 'Banco Inter', 'NFS-e'],
+            'tags' => ['Asaas', 'Inter', 'BB', 'Itaú', 'Bradesco', 'Santander', 'Caixa', 'Sicoob', 'Sicredi', 'NFS-e'],
         ],
         'agenda' => [
             'title' => 'Agenda e e-mail',

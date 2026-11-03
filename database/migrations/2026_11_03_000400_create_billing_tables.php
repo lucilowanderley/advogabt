@@ -11,7 +11,7 @@ return new class extends Migration
         // Contas do escritório nos bancos/plataformas de cobrança (Asaas, Banco Inter). Uma por plataforma.
         Schema::create('billing_providers', function (Blueprint $table) {
             $table->id();
-            $table->string('driver', 20)->unique(); // asaas | inter
+            $table->string('driver', 20)->unique(); // asaas | inter | bb | itau | bradesco | santander | sicoob | sicredi | caixa
             $table->string('environment', 10)->default('sandbox'); // sandbox | producao
             $table->text('api_key')->nullable(); // criptografado (Asaas)
             $table->string('client_id')->nullable(); // Banco Inter
@@ -36,8 +36,8 @@ return new class extends Migration
         // Boletos e Pix gerados para os lançamentos a receber.
         Schema::create('billing_charges', function (Blueprint $table) {
             $table->id();
-            $table->string('provider', 20); // asaas | inter
-            $table->string('method', 20)->default('boleto_pix'); // boleto_pix | pix | livre
+            $table->string('provider', 20); // asaas | inter | bb | itau | bradesco | santander | sicoob | sicredi | caixa
+            $table->string('method', 20)->default('boleto_pix'); // boleto_pix | boleto | pix | livre
             $table->foreignId('financial_entry_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('contact_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
@@ -46,6 +46,7 @@ return new class extends Migration
             $table->date('due_date');
             $table->string('status', 20)->default('pendente'); // pendente | pago | vencido | cancelado | estornado | erro
             $table->string('external_id', 100)->nullable()->index(); // id do pagamento (Asaas) ou codigoSolicitacao (Inter)
+            $table->string('bank_number', 40)->nullable()->index(); // nosso número no banco
             $table->string('external_customer_id', 100)->nullable();
             $table->string('remote_status', 40)->nullable();
             $table->string('payment_url', 500)->nullable(); // fatura / link de pagamento

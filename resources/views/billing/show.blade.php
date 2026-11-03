@@ -54,7 +54,7 @@
                 <div class="row wrap" style="gap: 8px; margin-top: 10px">
                     @if ($charge->whatsappUrl())<a class="btn btn-primary" target="_blank" rel="noopener" href="{{ $charge->whatsappUrl() }}"><x-icon name="whatsapp" class="sm" /> Enviar pelo WhatsApp</a>@endif
                     @if ($charge->contact?->email)<a class="btn" href="mailto:{{ $charge->contact->email }}?subject={{ rawurlencode('Cobrança: '.$charge->description) }}&body={{ rawurlencode($charge->shareText()) }}"><x-icon name="mail" class="sm" /> E-mail</a>@endif
-                    @if ($charge->slip_url || ($charge->provider === 'inter' && $charge->digitable_line))<a class="btn" target="_blank" rel="noopener" href="{{ route('billing.pdf', $charge) }}"><x-icon name="download" class="sm" /> PDF do boleto</a>@endif
+                    @if ($charge->slip_url || ($provider?->info('pdf') && $charge->digitable_line))<a class="btn" target="_blank" rel="noopener" href="{{ route('billing.pdf', $charge) }}"><x-icon name="download" class="sm" /> PDF do boleto</a>@endif
                     @if ($charge->payment_url)<a class="btn btn-ghost" target="_blank" rel="noopener" href="{{ $charge->payment_url }}"><x-icon name="external" class="sm" /> Abrir fatura</a>@endif
                 </div>
                 @if ($charge->provider === 'asaas' && $provider?->notify_customer)
@@ -117,6 +117,7 @@
                 @if ($charge->entry?->legalCase)<dt>Processo</dt><dd><a class="link" href="{{ route('cases.show', $charge->entry->legalCase) }}">{{ $charge->entry->legalCase->number ?: $charge->entry->legalCase->title }}</a></dd>@endif
                 <dt>Gerada</dt><dd>{{ $charge->created_at->format('d/m/Y H:i') }}@if ($charge->user) por {{ $charge->user->name }}@endif</dd>
                 @if ($charge->external_id)<dt>Código no {{ $charge->provider_label }}</dt><dd><code>{{ $charge->external_id }}</code></dd>@endif
+                @if ($charge->bank_number && $charge->bank_number !== $charge->external_id)<dt>Nosso número</dt><dd><code>{{ $charge->bank_number }}</code></dd>@endif
                 @if ($charge->last_checked_at)<dt>Última consulta</dt><dd>{{ $charge->last_checked_at->diffForHumans() }}@if ($charge->remote_status) ({{ $charge->remote_status }})@endif</dd>@endif
             </dl>
         </div>

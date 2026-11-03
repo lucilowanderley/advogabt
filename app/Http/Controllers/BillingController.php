@@ -145,6 +145,23 @@ class BillingController extends Controller
         ]);
     }
 
+    /** Arquivo de retorno CNAB 240 do banco: dá baixa nas cobranças pagas. */
+    public function importReturn(Request $request): RedirectResponse
+    {
+        $request->validate(['file' => ['required', 'file', 'max:10240']], [], ['file' => 'arquivo de retorno']);
+        try {
+            $r = Billing::importReturn((string) file_get_contents($request->file('file')->getRealPath()));
+        } catch (BillingException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+        $msg = "Retorno lido: {$r['read']} pagamento(s), {$r['paid']} baixado(s) agora, {$r['already']} já estavam baixados.";
+        if ($r['unknown']) {
+            $msg .= ' Não encontrados no sistema: '.implode('; ', array_slice($r['unknown'], 0, 10)).(count($r['unknown']) > 10 ? '…' : '').'.';
+        }
+
+        return back()->with($r['read'] === 0 ? 'error' : 'success', $r['read'] === 0 ? 'O arquivo não tem pagamentos (liquidações).' : $msg);
+    }
+
     // --- Notas fiscais -----------------------------------------------------------
 
     public function invoices(Request $request): View

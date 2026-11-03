@@ -18,16 +18,23 @@ use Illuminate\View\View;
 /** Integrações › Cobrança e notas fiscais: contas no Asaas e no Banco Inter e configuração da NFS-e. */
 class BillingSettingsController extends Controller
 {
-    public function settings(): View
+    public function settings(Request $request): View
     {
+        $saved = BillingProvider::all()->keyBy('driver');
         $providers = [];
         foreach (array_keys(BillingProvider::DRIVERS) as $driver) {
-            $providers[$driver] = BillingProvider::forDriver($driver)
+            $providers[$driver] = $saved[$driver]
                 ?? new BillingProvider(['driver' => $driver, 'environment' => 'sandbox', 'active' => true, 'fine_percent' => 2, 'interest_percent' => 1, 'notify_customer' => true]);
+        }
+
+        $current = $request->query('conta');
+        if (! isset($providers[$current])) {
+            $current = collect($providers)->filter->exists->sortByDesc('is_default')->keys()->first() ?? 'asaas';
         }
 
         return view('billing.settings', [
             'providers' => $providers,
+            'current' => $current,
             'open' => BillingCharge::open()->count(),
             'paidMonth' => BillingCharge::where('status', 'pago')->where('paid_at', '>=', now()->startOfMonth())->count(),
             'invoicesMonth' => FiscalInvoice::where('status', 'emitida')->where('issued_at', '>=', now()->startOfMonth())->count(),
@@ -38,60 +45,69 @@ class BillingSettingsController extends Controller
     {
         abort_unless(isset(BillingProvider::DRIVERS[$driver]), 404);
         $p = BillingProvider::forDriver($driver) ?? new BillingProvider(['driver' => $driver]);
+        $fields = BillingProvider::DRIVERS[$driver]['fields'];
         $request->merge([
             'fine_percent' => Format::parseMoney($request->input('fine_percent')) ?? 0,
             'interest_percent' => Format::parseMoney($request->input('interest_percent')) ?? 0,
         ]);
-        $inter = $driver === 'inter';
-        $data = $request->validate([
+        $environment = in_array($request->input('environment'), array_keys(BillingProvider::ENVIRONMENTS), true) ? $request->input('environment') : 'sandbox';
+
+        $rules = [
             'environment' => ['required', Rule::in(array_keys(BillingProvider::ENVIRONMENTS))],
-            'api_key' => [! $inter && ! $p->api_key ? 'required' : 'nullable', 'nullable', 'string', 'max:500'],
-            'client_id' => [$inter ? 'required' : 'nullable', 'nullable', 'string', 'max:255'],
-            'client_secret' => [$inter && ! $p->client_secret ? 'required' : 'nullable', 'nullable', 'string', 'max:500'],
-            'certificate_file' => [$inter && ! $p->certificate ? 'required' : 'nullable', 'nullable', 'file', 'max:64'],
-            'private_key_file' => [$inter && ! $p->private_key ? 'required' : 'nullable', 'nullable', 'file', 'max:64'],
-            'account_number' => ['nullable', 'string', 'max:30'],
             'fine_percent' => ['numeric', 'min:0', 'max:2'],
             'interest_percent' => ['numeric', 'min:0', 'max:10'],
-        ], [
+        ];
+        $names = ['fine_percent' => 'multa', 'interest_percent' => 'juros'];
+        foreach ($fields as $name => $f) {
+            $needed = ($f['required'] ?? false) === true || ($f['required'] ?? false) === $environment;
+            $hasValue = filled($p->credential($name));
+            if (in_array($f['type'], ['cert', 'key'], true)) {
+                $rules[$name.'_file'] = [$needed && ! $hasValue ? 'required' : 'nullable', 'nullable', 'file', 'max:64'];
+                $names[$name.'_file'] = $f['label'];
+            } else {
+                $rules[$name] = [$needed && ($f['type'] === 'text' || ! $hasValue) ? 'required' : 'nullable', 'nullable', 'string', 'max:500'];
+                $names[$name] = $f['label'];
+            }
+        }
+        $data = $request->validate($rules, [
             'fine_percent.max' => 'A multa por atraso não pode passar de 2% (Código de Defesa do Consumidor, art. 52, § 1º).',
-        ], [
-            'api_key' => 'chave de API', 'client_id' => 'Client ID', 'client_secret' => 'Client Secret',
-            'certificate_file' => 'certificado (.crt)', 'private_key_file' => 'chave (.key)', 'account_number' => 'conta corrente',
-            'fine_percent' => 'multa', 'interest_percent' => 'juros',
-        ]);
+        ], $names);
 
-        $certificate = $this->pem($request, 'certificate_file', 'CERTIFICATE');
-        $privateKey = $this->pem($request, 'private_key_file', 'PRIVATE KEY');
-        if ($certificate === false || $privateKey === false) {
-            return back()->withInput()->with('error', 'Envie os arquivos baixados do Inter: o certificado (.crt, começa com "-----BEGIN CERTIFICATE-----") e a chave (.key, "-----BEGIN PRIVATE KEY-----").');
+        $files = [];
+        foreach ($fields as $name => $f) {
+            if (in_array($f['type'], ['cert', 'key'], true)) {
+                $pem = $this->pem($request, $name.'_file', $f['type'] === 'cert' ? 'CERTIFICATE' : 'PRIVATE KEY');
+                if ($pem === false) {
+                    return back()->withInput()->with('error', 'Arquivo inválido em "'.$f['label'].'". Envie o '.($f['type'] === 'cert'
+                        ? 'certificado (.crt, começa com "-----BEGIN CERTIFICATE-----")' : 'arquivo da chave (.key, começa com "-----BEGIN PRIVATE KEY-----")').'.');
+                }
+                $files[$name] = $pem;
+            }
         }
 
-        $credentialsChanged = $p->exists && ($p->environment !== $data['environment'] || filled($data['api_key'] ?? null)
-            || filled($data['client_secret'] ?? null) || $certificate || $privateKey || ($inter && $p->client_id !== $data['client_id']));
+        $before = $p->exists ? [$p->environment, $p->getAttributes()] : null;
         $p->fill([
             'environment' => $data['environment'],
-            'client_id' => $inter ? trim((string) $data['client_id']) : null,
-            'account_number' => $inter ? ($data['account_number'] ?? null) : null,
             'fine_percent' => $data['fine_percent'],
             'interest_percent' => $data['interest_percent'],
             'notify_customer' => $request->boolean('notify_customer'),
             'active' => $request->boolean('active'),
             'is_default' => $request->boolean('is_default'),
         ]);
-        if (filled($data['api_key'] ?? null)) {
-            $p->api_key = trim($data['api_key']);
+        $settings = $p->settings ?? [];
+        foreach ($fields as $name => $f) {
+            $value = in_array($f['type'], ['cert', 'key'], true) ? ($files[$name] ?? null) : (isset($data[$name]) ? trim((string) $data[$name]) : null);
+            if ($f['type'] !== 'text' && blank($value)) {
+                continue; // segredo/arquivo em branco: mantém o atual
+            }
+            if (in_array($name, BillingProvider::COLUMNS, true)) {
+                $p->{$name} = filled($value) ? $value : null;
+            } else {
+                $settings[$name] = filled($value) ? $value : null;
+            }
         }
-        if (filled($data['client_secret'] ?? null)) {
-            $p->client_secret = trim($data['client_secret']);
-        }
-        if ($certificate) {
-            $p->certificate = $certificate;
-        }
-        if ($privateKey) {
-            $p->private_key = $privateKey;
-        }
-        if ($credentialsChanged) {
+        $p->settings = $settings ?: null;
+        if ($before && ($before[0] !== $p->environment || $p->isDirty(array_merge(BillingProvider::COLUMNS, ['settings'])))) {
             $p->forceFill(['last_test_at' => null, 'last_test_ok' => null, 'last_error' => null]);
         }
         $p->save();
@@ -99,7 +115,7 @@ class BillingSettingsController extends Controller
             BillingProvider::where('id', '!=', $p->id)->update(['is_default' => false]);
         }
 
-        return redirect()->route('billing.settings')->with('success', $p->label.' salvo. Use "Testar conexão" para conferir.');
+        return redirect()->route('billing.settings', ['conta' => $driver])->with('success', $p->label.' salvo. Use "Testar conexão" para conferir.');
     }
 
     public function testProvider(string $driver): RedirectResponse

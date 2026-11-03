@@ -22,6 +22,13 @@ class Billing
         return match ($name) {
             'asaas' => app(AsaasDriver::class),
             'inter' => app(InterDriver::class),
+            'bb' => app(BancoBrasilDriver::class),
+            'itau' => app(ItauDriver::class),
+            'bradesco' => app(BradescoDriver::class),
+            'santander' => app(SantanderDriver::class),
+            'sicoob' => app(SicoobDriver::class),
+            'sicredi' => app(SicrediDriver::class),
+            'caixa' => app(CaixaDriver::class),
             default => throw new BillingException('Plataforma de cobrança desconhecida: '.$name),
         };
     }
@@ -236,6 +243,62 @@ class Billing
         $invoices = $p->driver === 'asaas' ? Nfse::handleWebhook($ids) : 0;
 
         return $charges->count() + $invoices;
+    }
+
+    /**
+     * Importa o arquivo de retorno CNAB 240: dá baixa nas cobranças pagas (qualquer banco).
+     *
+     * @return array{read: int, paid: int, already: int, unknown: list<string>}
+     */
+    public static function importReturn(string $content): array
+    {
+        $result = ['read' => 0, 'paid' => 0, 'already' => 0, 'unknown' => []];
+        foreach (Cnab240::parse($content) as $item) {
+            if (! in_array($item['movement'], Cnab240::PAID, true)) {
+                continue;
+            }
+            $result['read']++;
+            $charge = self::findByReturn($item);
+            if (! $charge) {
+                $result['unknown'][] = trim(($item['document'] ?: $item['our_number']).' · R$ '.number_format($item['paid_amount'], 2, ',', '.'));
+
+                continue;
+            }
+            if ($charge->status === 'pago') {
+                $result['already']++;
+
+                continue;
+            }
+            self::markPaid($charge, new RemoteCharge('pago', 'CNAB '.$item['movement'], $item['paid_at'] ?? $item['credited_at'], $item['paid_amount'] ?: null, null));
+            $result['paid']++;
+        }
+        self::forget();
+
+        return $result;
+    }
+
+    private static function findByReturn(array $item): ?BillingCharge
+    {
+        if (preg_match('/^ADV0*(\d+)$/i', $item['document'], $m)) {
+            $charge = BillingCharge::find((int) $m[1]);
+            if ($charge) {
+                return $charge;
+            }
+        }
+        $digits = preg_replace('/\D+/', '', $item['our_number']);
+        if (ltrim($digits, '0') === '') {
+            return null;
+        }
+
+        // O nosso número no arquivo pode trazer carteira e dígito junto: procura o nosso número
+        // gravado (com os zeros à esquerda) dentro dele, ou igualdade sem os zeros.
+        return BillingCharge::whereNotNull('bank_number')->whereIn('status', ['pendente', 'vencido', 'pago', 'cancelado'])
+            ->latest('id')->limit(1000)->get()
+            ->first(function (BillingCharge $c) use ($digits) {
+                $n = preg_replace('/\D+/', '', (string) $c->bank_number);
+
+                return $n !== '' && (ltrim($n, '0') === ltrim($digits, '0') || (strlen($n) >= 6 && str_contains($digits, $n)));
+            });
     }
 
     public static function apiData(BillingCharge $c): array

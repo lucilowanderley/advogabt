@@ -13,13 +13,26 @@ class Event extends Model
         'notes',
     ];
 
+    protected $hidden = ['invited_emails'];
+
     protected function casts(): array
     {
         return [
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
             'all_day' => 'boolean',
+            'reminded_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        // Nova data: o lembrete por e-mail pode ser enviado de novo.
+        static::saving(function (Event $event) {
+            if ($event->exists && $event->isDirty('starts_at') && ! $event->isDirty('reminded_at')) {
+                $event->reminded_at = null;
+            }
+        });
     }
 
     public function legalCase(): BelongsTo

@@ -389,4 +389,17 @@
     };
     sel.addEventListener('change', apply);
   });
+
+  // Agenda e e-mail: preenche o servidor SMTP conforme a conta (Gmail, Outlook, outro).
+  document.querySelectorAll('[data-mail-provider]').forEach(function (sel) {
+    var form = sel.closest('form');
+    sel.addEventListener('change', function () {
+      var o = sel.options[sel.selectedIndex];
+      form.querySelectorAll('[data-provider-help]').forEach(function (el) { el.hidden = el.getAttribute('data-provider-help') !== sel.value; });
+      form.querySelector('[name="host"]').value = o.getAttribute('data-host') || '';
+      form.querySelector('[name="port"]').value = o.getAttribute('data-port') || '587';
+      form.querySelector('[name="encryption"]').value = o.getAttribute('data-encryption') || 'tls';
+      if (sel.value === 'smtp') { var d = form.querySelector('details'); if (d) d.open = true; }
+    });
+  });
 })();

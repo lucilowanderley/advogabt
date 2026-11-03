@@ -8,6 +8,7 @@
         <div class="sub">Audiências, reuniões, perícias e prazos do escritório.</div>
     </div>
     <div class="page-actions">
+        <a class="btn" href="{{ route('agenda-email.index') }}" title="Ver a agenda no Google Agenda, Outlook ou iPhone"><x-icon name="refresh" class="sm" /> Sincronizar com Google/Outlook</a>
         <a class="btn btn-primary" href="{{ route('events.create') }}"><x-icon name="plus" class="sm" /> Novo compromisso</a>
     </div>
 </div>

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AgendaEmailController;
 use App\Http\Controllers\AiProviderController;
 use App\Http\Controllers\AssistantController;
 use App\Http\Controllers\Auth\LoginController;
@@ -28,6 +29,10 @@ Route::middleware('guest')->group(function () {
 // Arquivos na nuvem: retorno do login do Google/Microsoft (pode chegar por http://localhost no Laragon).
 Route::get('/integracoes/arquivos/retorno', [CloudFileController::class, 'callback'])->name('cloud.callback')->middleware('throttle:20,1');
 
+// Agenda e e-mail: link secreto de assinatura lido pelo Google Agenda, Outlook, iPhone...
+Route::get('/calendario/{token}.ics', [AgendaEmailController::class, 'feed'])->where('token', '[A-Za-z0-9]{20,64}')
+    ->name('calendar.feed')->middleware('throttle:60,1');
+
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
@@ -38,6 +43,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/tarefas/{task}/comentarios', [TaskController::class, 'comment'])->name('tasks.comment');
     Route::resource('tarefas', TaskController::class)->parameters(['tarefas' => 'task'])->names('tasks');
 
+    Route::get('/agenda/{event}/ics', [AgendaEmailController::class, 'eventIcs'])->whereNumber('event')->name('events.ics');
     Route::resource('agenda', EventController::class)->parameters(['agenda' => 'event'])->except('show')->names('events');
 
     Route::patch('/contatos/{contact}/etapa', [ContactController::class, 'moveStage'])->name('contacts.stage');
@@ -91,6 +97,18 @@ Route::middleware('auth')->group(function () {
         Route::post('/webhooks/{webhook}/segredo', 'rotateSecret')->name('webhooks.secret');
         Route::post('/entregas/{delivery}/reenviar', 'redeliver')->name('deliveries.redeliver')->middleware('throttle:20,1');
         Route::post('/rotina', 'runRoutine')->name('routine')->middleware('throttle:10,1');
+    });
+
+    Route::controller(AgendaEmailController::class)->prefix('integracoes/agenda-email')->name('agenda-email.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::post('/links', 'storeFeed')->name('feeds.store');
+        Route::post('/links/{feed}/trocar', 'regenerateFeed')->name('feeds.regenerate');
+        Route::delete('/links/{feed}', 'destroyFeed')->name('feeds.destroy');
+        Route::middleware('can:admin')->group(function () {
+            Route::post('/email', 'saveMail')->name('mail.save');
+            Route::post('/email/testar', 'testMail')->name('mail.test')->middleware('throttle:10,1');
+            Route::post('/email/resumo', 'sendDigest')->name('mail.digest')->middleware('throttle:5,1');
+        });
     });
 
     Route::middleware('can:admin')->prefix('integracoes/arquivos')->name('cloud.')->controller(CloudFileController::class)->group(function () {

@@ -2,11 +2,13 @@
 
 namespace App\Support\Integrations;
 
+use App\Support\Agenda\AgendaMail;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Rotina das integrações: avisa prazos vencendo e reenvia webhooks que falharam.
+ * Rotina das integrações: avisa prazos vencendo, reenvia webhooks que falharam e envia
+ * os lembretes e o resumo diário por e-mail (Agenda e e-mail).
  * Roda pelo agendador (php artisan schedule:work) e, para quem não configurou o
  * agendador no Laragon, também a cada 15 minutos de uso do sistema, depois da resposta.
  */
@@ -14,12 +16,12 @@ class Routine
 {
     public static function run(): array
     {
-        return ['deadlines' => Deadlines::notify(), 'retried' => Webhooks::retryFailed()];
+        return ['deadlines' => Deadlines::notify(), 'retried' => Webhooks::retryFailed()] + AgendaMail::run();
     }
 
     public static function runIfDue(): void
     {
-        if (! config('services.integrations.web_routine') || ! Webhooks::hasActive()) {
+        if (! config('services.integrations.web_routine') || (! Webhooks::hasActive() && ! AgendaMail::hasWork())) {
             return;
         }
         if (! Cache::add('integrations-routine', true, now()->addMinutes(15))) {

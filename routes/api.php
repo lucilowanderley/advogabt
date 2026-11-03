@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\StatusController;
 use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\WebhookSubscriptionController;
 use App\Http\Controllers\Api\WhatsappWebhookController;
+use App\Http\Controllers\BillingController;
 use App\Http\Controllers\SignatureController;
 use Illuminate\Support\Facades\Route;
 
@@ -23,6 +24,11 @@ Route::post('/whatsapp/{token}', [WhatsappWebhookController::class, 'receive'])-
 // a situação é sempre confirmada consultando a própria plataforma.
 Route::post('/assinatura/{token}', [SignatureController::class, 'webhook'])->where('token', '[A-Za-z0-9]{20,64}')
     ->middleware('throttle:120,1')->name('signatures.webhook');
+
+// Avisos de pagamento e de NFS-e (Asaas, Banco Inter). O token na URL identifica a conta;
+// a situação é sempre confirmada consultando a própria plataforma.
+Route::post('/cobranca/{token}', [BillingController::class, 'webhook'])->where('token', '[A-Za-z0-9]{20,64}')
+    ->middleware('throttle:300,1')->name('billing.webhook');
 
 Route::prefix('v1')->name('api.')->middleware(['api.token', 'throttle:api-token'])->group(function () {
     Route::get('/status', [StatusController::class, 'status'])->name('status');

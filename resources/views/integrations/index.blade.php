@@ -48,7 +48,7 @@
                     </div>
                     @if ($link)
                         <div class="row wrap" style="gap: 6px">
-                            <a class="btn btn-sm" href="{{ $link }}">{{ match (true) { $key === 'whatsapp' => 'Abrir', $key === 'assinatura' => 'Documentos enviados', $key === 'agenda' && ! auth()->user()->isAdmin() => 'Sincronizar minha agenda', default => 'Configurar' } }} <x-icon name="chevron-right" class="sm" /></a>
+                            <a class="btn btn-sm" href="{{ $link }}">{{ match (true) { $key === 'whatsapp' => 'Abrir', $key === 'assinatura' => 'Documentos enviados', $key === 'financeiro' => 'Cobranças', $key === 'agenda' && ! auth()->user()->isAdmin() => 'Sincronizar minha agenda', default => 'Configurar' } }} <x-icon name="chevron-right" class="sm" /></a>
                             @if (! empty($item['admin_route']) && auth()->user()->isAdmin())<a class="btn btn-sm btn-ghost" href="{{ route($item['admin_route']) }}">Configurar</a>@endif
                         </div>
                     @elseif ($item['status'] === 'disponivel')

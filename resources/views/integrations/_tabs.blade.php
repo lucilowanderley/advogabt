@@ -7,6 +7,7 @@
     @endcan
     @can('admin')
         <a href="{{ route('signatures.settings') }}" class="{{ request()->routeIs('signatures.settings') ? 'active' : '' }}"><x-icon name="pen" class="sm" /> Assinatura digital</a>
+        <a href="{{ route('billing.settings') }}" class="{{ request()->routeIs('billing.settings') ? 'active' : '' }}"><x-icon name="dollar" class="sm" /> Cobrança e NFS-e</a>
     @endcan
     <a href="{{ route('agenda-email.index') }}" class="{{ request()->routeIs('agenda-email.*') ? 'active' : '' }}"><x-icon name="calendar" class="sm" /> Agenda e e-mail</a>
     <a href="{{ route('integrations.docs') }}" class="{{ request()->routeIs('integrations.docs') ? 'active' : '' }}"><x-icon name="book" class="sm" /> Documentação da API</a>

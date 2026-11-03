@@ -63,8 +63,11 @@ class Catalog
             'title' => 'Cobrança e notas fiscais',
             'icon' => 'dollar',
             'group' => 'Financeiro',
-            'status' => 'breve',
-            'description' => 'Boleto e Pix para os honorários, baixa automática do pagamento e emissão de NFS-e.',
+            'status' => 'disponivel',
+            'route' => 'billing.index',
+            'admin_route' => 'billing.settings',
+            'everyone' => true,
+            'description' => 'Boleto e Pix para os honorários direto do Financeiro, baixa automática quando o cliente paga e emissão da NFS-e, com o link de pagamento pronto para mandar pelo WhatsApp.',
             'tags' => ['Asaas', 'Banco Inter', 'NFS-e'],
         ],
         'agenda' => [

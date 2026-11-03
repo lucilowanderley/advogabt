@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /** Lançamento financeiro (conta a receber ou a pagar). */
 class FinancialEntry extends Model
@@ -36,6 +38,23 @@ class FinancialEntry extends Model
     public function partner(): BelongsTo
     {
         return $this->belongsTo(Partner::class);
+    }
+
+    /** Boletos/Pix gerados para este lançamento (Cobrança e notas fiscais). */
+    public function charges(): HasMany
+    {
+        return $this->hasMany(BillingCharge::class)->latest('id');
+    }
+
+    /** Cobrança mais recente que não foi cancelada. */
+    public function currentCharge(): HasOne
+    {
+        return $this->hasOne(BillingCharge::class)->ofMany(['id' => 'max'], fn ($q) => $q->whereNotIn('status', ['cancelado', 'erro']));
+    }
+
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(FiscalInvoice::class)->latest('id');
     }
 
     public function scopePaid(Builder $query): Builder

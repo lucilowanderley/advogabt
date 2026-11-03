@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\StatusController;
 use App\Http\Controllers\Api\TaskController;
 use App\Http\Controllers\Api\WebhookSubscriptionController;
 use App\Http\Controllers\Api\WhatsappWebhookController;
+use App\Http\Controllers\SignatureController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -17,6 +18,11 @@ use Illuminate\Support\Facades\Route;
 // Avisos de mensagens do WhatsApp (Evolution API ou Meta). O token na URL identifica o canal.
 Route::get('/whatsapp/{token}', [WhatsappWebhookController::class, 'verify'])->middleware('throttle:60,1')->name('whatsapp.webhook.verify');
 Route::post('/whatsapp/{token}', [WhatsappWebhookController::class, 'receive'])->middleware('throttle:600,1')->name('whatsapp.webhook');
+
+// Avisos das plataformas de assinatura (ClickSign, D4Sign). O token na URL identifica a conta;
+// a situação é sempre confirmada consultando a própria plataforma.
+Route::post('/assinatura/{token}', [SignatureController::class, 'webhook'])->where('token', '[A-Za-z0-9]{20,64}')
+    ->middleware('throttle:120,1')->name('signatures.webhook');
 
 Route::prefix('v1')->name('api.')->middleware(['api.token', 'throttle:api-token'])->group(function () {
     Route::get('/status', [StatusController::class, 'status'])->name('status');

@@ -60,6 +60,8 @@
 
         @include('cloud._card', ['owner' => $case, 'type' => 'processo'])
 
+        @include('signatures._card', ['owner' => $case, 'type' => 'processo'])
+
         <div class="card">
             <div class="card-head">
                 <h3><x-icon name="check-square" /> Tarefas e prazos</h3>

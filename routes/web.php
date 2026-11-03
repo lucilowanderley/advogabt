@@ -16,6 +16,7 @@ use App\Http\Controllers\PartnerController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\SignatureController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WhatsappController;
@@ -130,6 +131,27 @@ Route::middleware('auth')->group(function () {
             Route::delete('/vinculo', 'unlinkFolder')->name('unlink');
             Route::delete('/itens/{file}', 'trash')->name('trash');
         });
+
+    // Assinatura digital: documentos enviados (equipe) e plataformas (administradores).
+    Route::controller(SignatureController::class)->prefix('assinaturas')->name('signatures.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/nova', 'create')->name('create');
+        Route::post('/', 'store')->name('store')->middleware('throttle:20,1');
+        Route::get('/{signature}', 'show')->whereNumber('signature')->name('show');
+        Route::post('/{signature}/atualizar', 'refresh')->whereNumber('signature')->name('refresh')->middleware('throttle:30,1');
+        Route::post('/{signature}/reenviar', 'resend')->whereNumber('signature')->name('resend')->middleware('throttle:10,1');
+        Route::post('/{signature}/cancelar', 'cancel')->whereNumber('signature')->name('cancel');
+        Route::post('/{signature}/assinado', 'attachSigned')->whereNumber('signature')->name('attach')->middleware('throttle:20,1');
+        Route::get('/{signature}/arquivo/{kind}', 'download')->whereNumber('signature')->where('kind', 'original|assinado')->name('download');
+        Route::delete('/{signature}', 'destroy')->whereNumber('signature')->name('destroy');
+    });
+    Route::middleware('can:admin')->controller(SignatureController::class)->prefix('integracoes/assinatura')->name('signatures.')->group(function () {
+        Route::get('/', 'settings')->name('settings');
+        Route::post('/cofres', 'safes')->name('safes')->middleware('throttle:20,1');
+        Route::post('/{driver}', 'saveProvider')->where('driver', 'clicksign|d4sign')->name('providers.save');
+        Route::post('/{driver}/testar', 'testProvider')->where('driver', 'clicksign|d4sign')->name('providers.test')->middleware('throttle:20,1');
+        Route::delete('/{driver}', 'disconnect')->where('driver', 'clicksign|d4sign')->name('providers.destroy');
+    });
 
     Route::controller(WhatsappController::class)->prefix('whatsapp')->name('whatsapp.')->group(function () {
         Route::middleware('can:admin')->group(function () {

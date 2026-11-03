@@ -596,3 +596,10 @@ details.payload .code-block { max-height: 320px; overflow: auto; text-align: lef
 
 /* Elementos ocultos pelo atributo hidden (ex.: campos da forma de conexão da nuvem) */
 [hidden] { display: none !important; }
+
+/* ---------- Assinatura digital ---------- */
+.option-card { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--border-soft); border-radius: 10px; font-weight: 400; }
+.option-card input { margin-top: 3px; flex-shrink: 0; }
+.option-card:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.signer-row { padding: 12px; border: 1px solid var(--border-soft); border-radius: 10px; }
+.doc-editor { font-family: "Times New Roman", Georgia, serif; font-size: 15px; line-height: 1.6; min-height: 360px; }

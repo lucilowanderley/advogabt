@@ -46,11 +46,24 @@ class ReportController extends Controller
                 fputcsv($out, [], ';');
                 fputcsv($out, [$title], ';');
                 foreach ($rows as $row) {
-                    fputcsv($out, $row, ';');
+                    fputcsv($out, array_map([self::class, 'safeCell'], (array) $row), ';');
                 }
             }
             fclose($out);
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * Evita que um nome cadastrado como "=HYPERLINK(...)" vire fórmula ao abrir o CSV no Excel
+     * (números negativos como "-1.234,56" continuam como estão).
+     */
+    public static function safeCell(mixed $value): mixed
+    {
+        if (is_string($value) && $value !== '' && (in_array($value[0], ['=', '+', '@', "\t", "\r"], true) || ($value[0] === '-' && strlen($value) > 1 && ! is_numeric(str_replace(['.', ',', ' '], '', substr($value, 1)))))) {
+            return "'".$value;
+        }
+
+        return $value;
     }
 
     private function tab(Request $request): string

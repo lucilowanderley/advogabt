@@ -37,7 +37,7 @@ Route::get('/integracoes/arquivos/retorno', [CloudFileController::class, 'callba
 Route::get('/calendario/{token}.ics', [AgendaEmailController::class, 'feed'])->where('token', '[A-Za-z0-9]{20,64}')
     ->name('calendar.feed')->middleware('throttle:60,1');
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
     Route::get('/', DashboardController::class)->name('dashboard');

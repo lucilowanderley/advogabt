@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\AuthenticateApiToken;
+use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\RunIntegrationRoutine;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -16,7 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->alias(['api.token' => AuthenticateApiToken::class]);
+        $middleware->alias(['api.token' => AuthenticateApiToken::class, 'active' => EnsureUserIsActive::class]);
         $middleware->appendToGroup('web', RunIntegrationRoutine::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

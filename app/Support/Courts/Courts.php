@@ -163,12 +163,15 @@ class Courts
                 $complements = collect((array) ($mv['complementosTabelados'] ?? []))
                     ->map(fn ($c) => is_array($c) ? trim((string) (($c['nome'] ?? '') ?: ($c['valor'] ?? ''))) : '')
                     ->filter()->unique()->implode('; ');
-                $description = $name.($complements !== '' ? " ({$complements})" : '');
-                if ($graus->count() > 1 && $grau) {
-                    $description = '['.(self::GRAUS[$grau] ?? $grau).'] '.$description;
-                }
-                $id = 'dj-'.sha1(implode('|', [$case->id, $grau, $mv['codigo'] ?? '', $date->toIso8601String(), $description]));
-                if (isset($known[$id]) || isset($new[$id])) {
+                $base = $name.($complements !== '' ? " ({$complements})" : '');
+                $label = $grau ? '['.(self::GRAUS[$grau] ?? $grau).'] '.$base : $base;
+                $description = $graus->count() > 1 && $grau ? $label : $base;
+                // O id não depende do prefixo do grau: quando o processo sobe para o 2º grau, os
+                // movimentos do 1º grau já importados não podem entrar de novo. Também confere o id
+                // antigo (calculado com o prefixo) dos processos que já tinham mais de um grau.
+                $hash = fn (string $text) => 'dj-'.sha1(implode('|', [$case->id, $grau, $mv['codigo'] ?? '', $date->toIso8601String(), $text]));
+                $id = $hash($base);
+                if (isset($known[$id]) || isset($new[$id]) || ($label !== $base && isset($known[$hash($label)]))) {
                     continue;
                 }
                 $new[$id] = ['date' => $date, 'description' => $description];

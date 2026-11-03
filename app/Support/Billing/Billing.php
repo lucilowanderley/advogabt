@@ -290,15 +290,22 @@ class Billing
             return null;
         }
 
-        // O nosso número no arquivo pode trazer carteira e dígito junto: procura o nosso número
-        // gravado (com os zeros à esquerda) dentro dele, ou igualdade sem os zeros.
-        return BillingCharge::whereNotNull('bank_number')->whereIn('status', ['pendente', 'vencido', 'pago', 'cancelado'])
+        // O nosso número no arquivo pode trazer carteira e dígito junto. Primeiro procura o igual
+        // (sem os zeros à esquerda) em todas as cobranças; só depois o nosso número gravado (com os
+        // zeros) contido no do arquivo. Assim "…0012" não é confundido com "…001234".
+        $candidates = BillingCharge::whereNotNull('bank_number')->whereIn('status', ['pendente', 'vencido', 'pago', 'cancelado'])
             ->latest('id')->limit(1000)->get()
-            ->first(function (BillingCharge $c) use ($digits) {
-                $n = preg_replace('/\D+/', '', (string) $c->bank_number);
+            ->map(fn (BillingCharge $c) => [$c, preg_replace('/\D+/', '', (string) $c->bank_number)])
+            ->filter(fn ($pair) => $pair[1] !== '');
 
-                return $n !== '' && (ltrim($n, '0') === ltrim($digits, '0') || (strlen($n) >= 6 && str_contains($digits, $n)));
-            });
+        $exact = $candidates->first(fn ($pair) => ltrim($pair[1], '0') === ltrim($digits, '0'));
+        if ($exact) {
+            return $exact[0];
+        }
+        $contained = $candidates->filter(fn ($pair) => strlen($pair[1]) >= 6 && str_contains($digits, $pair[1]));
+
+        // Mais de uma cobrança possível: não arrisca dar baixa na errada (fica em "não encontrados").
+        return $contained->count() === 1 ? $contained->first()[0] : null;
     }
 
     public static function apiData(BillingCharge $c): array

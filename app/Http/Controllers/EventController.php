@@ -65,7 +65,7 @@ class EventController extends Controller
 
     public function create(Request $request): View
     {
-        $date = $request->query('data') ? Carbon::parse($request->query('data')) : today();
+        $date = $this->queryDate($request) ?? today();
         $event = new Event([
             'type' => 'reuniao',
             'starts_at' => $date->copy()->setTime(9, 0),

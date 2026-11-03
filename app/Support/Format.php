@@ -22,10 +22,14 @@ class Format
         if ($value === null || $value === '') {
             return null;
         }
-        if (is_numeric($value)) {
+        if (is_int($value) || is_float($value)) {
             return (float) $value;
         }
         $value = preg_replace('/[^\d,.-]/', '', (string) $value);
+        // "1.500" ou "12.345.678" (ponto como separador de milhar, sem centavos) é 1500, não 1,5.
+        if (preg_match('/^-?\d{1,3}(\.\d{3})+$/', $value)) {
+            return (float) str_replace('.', '', $value);
+        }
         if (str_contains($value, ',')) {
             $value = str_replace('.', '', $value);
             $value = str_replace(',', '.', $value);

@@ -84,9 +84,23 @@ class Rclone
 
         $exe = self::isWindows() ? 'rclone.exe' : 'rclone';
         $target = $dir.DIRECTORY_SEPARATOR.$exe;
+        try {
+            class_exists(ZipArchive::class) ? self::extractWithZipArchive($zipPath, $exe, $target) : self::extractWithSystem($zipPath, $exe, $target);
+        } finally {
+            @unlink($zipPath);
+        }
+        if (! is_file($target)) {
+            throw new CloudException('O rclone não foi encontrado dentro do arquivo baixado.');
+        }
+        @chmod($target, 0755);
+
+        return $target;
+    }
+
+    private static function extractWithZipArchive(string $zipPath, string $exe, string $target): void
+    {
         $zip = new ZipArchive;
         if ($zip->open($zipPath) !== true) {
-            @unlink($zipPath);
             throw new CloudException('O arquivo baixado do rclone está corrompido.');
         }
         for ($i = 0; $i < $zip->numFiles; $i++) {
@@ -96,13 +110,43 @@ class Rclone
             }
         }
         $zip->close();
-        @unlink($zipPath);
-        if (! is_file($target)) {
-            throw new CloudException('O rclone não foi encontrado dentro do arquivo baixado.');
-        }
-        @chmod($target, 0755);
+    }
 
-        return $target;
+    /**
+     * PHP sem a extensão zip (comum no Laragon): extrai com o próprio sistema.
+     * Windows: PowerShell Expand-Archive (ou tar.exe, que vem no Windows 10+). Linux/macOS: unzip ou tar.
+     */
+    private static function extractWithSystem(string $zipPath, string $exe, string $target): void
+    {
+        $tmp = dirname($zipPath).DIRECTORY_SEPARATOR.'rclone-extract-'.Str::random(6);
+        File::ensureDirectoryExists($tmp);
+        try {
+            $attempts = self::isWindows()
+                ? [
+                    ['powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', 'Expand-Archive -LiteralPath '.self::psQuote($zipPath).' -DestinationPath '.self::psQuote($tmp).' -Force'],
+                    ['tar', '-xf', $zipPath, '-C', $tmp],
+                ]
+                : [['unzip', '-q', '-o', $zipPath, '-d', $tmp], ['tar', '-xf', $zipPath, '-C', $tmp]];
+            $errors = [];
+            foreach ($attempts as $command) {
+                $result = Process::timeout(180)->run($command);
+                $found = collect(File::allFiles($tmp))->first(fn ($f) => $f->getFilename() === $exe);
+                if ($found) {
+                    File::copy($found->getPathname(), $target);
+
+                    return;
+                }
+                $errors[] = $command[0].': '.Str::limit(trim($result->errorOutput()) ?: 'sem saída', 150);
+            }
+            throw new CloudException('O PHP deste servidor não tem a extensão zip e não consegui extrair o rclone de outro jeito ('.implode(' | ', $errors).'). No Laragon: Menu › PHP › Extensions › zip, ou baixe em https://rclone.org/downloads/ e coloque o rclone.exe em C:\\laragon\\bin\\rclone\\.');
+        } finally {
+            File::deleteDirectory($tmp);
+        }
+    }
+
+    private static function psQuote(string $value): string
+    {
+        return "'".str_replace("'", "''", $value)."'";
     }
 
     /**

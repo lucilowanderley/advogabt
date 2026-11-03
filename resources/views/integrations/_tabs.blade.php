@@ -6,6 +6,7 @@
         <a href="{{ route('cloud.settings') }}" class="{{ request()->routeIs('cloud.*') ? 'active' : '' }}"><x-icon name="cloud" class="sm" /> Arquivos na nuvem</a>
     @endcan
     @can('admin')
+        <a href="{{ route('courts.settings') }}" class="{{ request()->routeIs('courts.*') ? 'active' : '' }}"><x-icon name="gavel" class="sm" /> Tribunais</a>
         <a href="{{ route('signatures.settings') }}" class="{{ request()->routeIs('signatures.settings') ? 'active' : '' }}"><x-icon name="pen" class="sm" /> Assinatura digital</a>
     @endcan
     <a href="{{ route('agenda-email.index') }}" class="{{ request()->routeIs('agenda-email.*') ? 'active' : '' }}"><x-icon name="calendar" class="sm" /> Agenda e e-mail</a>

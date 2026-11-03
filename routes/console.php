@@ -28,10 +28,10 @@ Artisan::command('ai:certificados', function () {
 // Integrações: avisa prazos vencendo (webhook prazo.vencendo), reenvia webhooks que falharam e envia os e-mails da agenda.
 Artisan::command('integracoes:rotina', function () {
     $result = Routine::run();
-    $this->info("Prazos avisados: {$result['deadlines']} · Webhooks reenviados: {$result['retried']} · Lembretes por e-mail: {$result['reminders']} · Resumos diários: {$result['digests']} · Assinaturas atualizadas: {$result['signatures']}");
+    $this->info("Prazos avisados: {$result['deadlines']} · Webhooks reenviados: {$result['retried']} · Lembretes por e-mail: {$result['reminders']} · Resumos diários: {$result['digests']} · Assinaturas atualizadas: {$result['signatures']} · Publicações do DJEN: {$result['publications']} · Andamentos do Datajud: {$result['movements']}");
 
     return 0;
-})->purpose('Envia os avisos de prazo vencendo, reenvia os webhooks que falharam, envia lembretes e resumos por e-mail e acompanha as assinaturas digitais');
+})->purpose('Envia os avisos de prazo vencendo, reenvia os webhooks que falharam, envia lembretes e resumos por e-mail acompanha as assinaturas digitais e consulta os tribunais (Datajud e DJEN)');
 
 // Arquivos na nuvem: cria as pastas dos clientes e processos que ainda não têm.
 Artisan::command('arquivos:pastas {--limite=500}', function (CloudFolders $folders) {

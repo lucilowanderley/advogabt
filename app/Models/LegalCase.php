@@ -25,6 +25,9 @@ class LegalCase extends Model
             'distributed_at' => 'date',
             'claim_value' => 'decimal:2',
             'fee_percent' => 'decimal:2',
+            'datajud_sync' => 'boolean',
+            'datajud_checked_at' => 'datetime',
+            'datajud_updated_at' => 'datetime',
         ];
     }
 
@@ -46,6 +49,12 @@ class LegalCase extends Model
     public function movements(): HasMany
     {
         return $this->hasMany(CaseMovement::class)->orderByDesc('date')->orderByDesc('id');
+    }
+
+    /** Intimações e publicações do DJEN vinculadas ao processo. */
+    public function publications(): HasMany
+    {
+        return $this->hasMany(CourtPublication::class)->latest('available_at')->latest('id');
     }
 
     public function tasks(): HasMany

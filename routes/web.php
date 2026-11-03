@@ -3,6 +3,7 @@
 use App\Http\Controllers\AiProviderController;
 use App\Http\Controllers\AssistantController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\CloudFileController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentTemplateController;
@@ -23,6 +24,9 @@ Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'show'])->name('login');
     Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:10,1');
 });
+
+// Arquivos na nuvem: retorno do login do Google/Microsoft (pode chegar por http://localhost no Laragon).
+Route::get('/integracoes/arquivos/retorno', [CloudFileController::class, 'callback'])->name('cloud.callback')->middleware('throttle:20,1');
 
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
@@ -88,6 +92,26 @@ Route::middleware('auth')->group(function () {
         Route::post('/entregas/{delivery}/reenviar', 'redeliver')->name('deliveries.redeliver')->middleware('throttle:20,1');
         Route::post('/rotina', 'runRoutine')->name('routine')->middleware('throttle:10,1');
     });
+
+    Route::middleware('can:admin')->prefix('integracoes/arquivos')->name('cloud.')->controller(CloudFileController::class)->group(function () {
+        Route::get('/', 'settings')->name('settings');
+        Route::post('/', 'save')->name('save');
+        Route::get('/conectar', 'connect')->name('connect');
+        Route::post('/token', 'pasteToken')->name('token')->middleware('throttle:20,1');
+        Route::post('/rclone', 'installRclone')->name('rclone')->middleware('throttle:5,1');
+        Route::post('/testar', 'test')->name('test')->middleware('throttle:20,1');
+        Route::delete('/conexao', 'disconnect')->name('disconnect');
+        Route::post('/pastas', 'createMissing')->name('missing')->middleware('throttle:10,1');
+    });
+    Route::controller(CloudFileController::class)->prefix('arquivos/{type}/{id}')->where(['type' => 'processo|contato', 'id' => '[0-9]+'])
+        ->name('cloud.files.')->group(function () {
+            Route::get('/', 'panel')->name('panel');
+            Route::post('/', 'upload')->name('upload')->middleware('throttle:30,1');
+            Route::post('/pasta', 'createFolder')->name('folder')->middleware('throttle:30,1');
+            Route::post('/vincular', 'linkFolder')->name('link');
+            Route::delete('/vinculo', 'unlinkFolder')->name('unlink');
+            Route::delete('/itens/{file}', 'trash')->name('trash');
+        });
 
     Route::controller(WhatsappController::class)->prefix('whatsapp')->name('whatsapp.')->group(function () {
         Route::middleware('can:admin')->group(function () {

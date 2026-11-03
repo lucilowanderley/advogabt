@@ -15,6 +15,7 @@ use App\Models\WhatsappConversation;
 use App\Models\WhatsappMessage;
 use App\Support\Ai\AiException;
 use App\Support\Ai\LlmClient;
+use App\Support\Cloud\CloudEvents;
 use App\Support\Format;
 use App\Support\Integrations\Webhooks;
 use App\Support\Options;
@@ -411,6 +412,7 @@ class WhatsappBot
             $path = "whatsapp/{$c->id}/".now()->format('Ymd-His').'-'.Str::random(6).($ext ? ".{$ext}" : '');
             Storage::disk('local')->put($path, $content);
             $m->forceFill(['media_path' => $path, 'media_mime' => $mime ?: $m->media_mime, 'media_name' => $m->media_name ?: basename($path)])->save();
+            CloudEvents::whatsappMedia($m, $c->contact_id);
         } catch (\Throwable $e) {
             $m->forceFill(['error' => 'Arquivo não baixado: '.Str::limit($e->getMessage(), 300)])->save();
         }

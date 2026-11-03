@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\CloudStorage;
 use App\Support\Ai\CertificateStore;
+use App\Support\Cloud\CloudFolders;
 use App\Support\Integrations\Routine;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -30,5 +32,22 @@ Artisan::command('integracoes:rotina', function () {
 
     return 0;
 })->purpose('Envia os avisos de prazo vencendo e reenvia os webhooks que falharam');
+
+// Arquivos na nuvem: cria as pastas dos clientes e processos que ainda não têm.
+Artisan::command('arquivos:pastas {--limite=500}', function (CloudFolders $folders) {
+    $storage = CloudStorage::connected();
+    if (! $storage) {
+        $this->error('Conecte o Google Drive ou o OneDrive em Integrações › Arquivos na nuvem.');
+
+        return 1;
+    }
+    $r = $folders->createMissing($storage, (int) $this->option('limite'));
+    $this->info("Pastas criadas/vinculadas: {$r['contatos']} cliente(s), {$r['processos']} processo(s). Faltam: ".$folders->missingCount($storage));
+    foreach ($r['erros'] as $erro) {
+        $this->warn($erro);
+    }
+
+    return $r['erros'] ? 1 : 0;
+})->purpose('Cria na nuvem as pastas dos clientes e processos que ainda não têm');
 
 Schedule::command('integracoes:rotina')->everyFifteenMinutes()->withoutOverlapping();

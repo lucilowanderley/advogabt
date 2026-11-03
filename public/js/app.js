@@ -352,4 +352,41 @@
         .catch(function () {});
     }, 8000);
   }
+
+  // Arquivos na nuvem: carrega a pasta do processo/cliente depois da página
+  document.querySelectorAll('[data-cloud-panel]').forEach(function (box) {
+    fetch(box.getAttribute('data-cloud-panel'), { headers: { 'Accept': 'application/json' } })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (j) { box.innerHTML = j.html; })
+      .catch(function (e) {
+        box.innerHTML = '<div class="empty"><div>Não foi possível carregar os arquivos (' + e.message + '). Recarregue a página.</div></div>';
+      });
+  });
+  document.addEventListener('submit', function (e) {
+    var form = e.target.closest('[data-cloud-upload]');
+    if (!form || e.defaultPrevented) return;
+    var btn = form.querySelector('button');
+    if (btn) { btn.disabled = true; btn.textContent = 'Enviando…'; }
+  });
+
+  // Copiar o valor de um campo (ex.: URL de retorno)
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-copy-input]');
+    if (!btn) return;
+    var input = btn.parentElement.querySelector('input');
+    if (!input) return;
+    input.select();
+    try { navigator.clipboard.writeText(input.value); } catch (err) { document.execCommand('copy'); }
+    var old = btn.innerHTML;
+    btn.textContent = 'Copiado!';
+    setTimeout(function () { btn.innerHTML = old; }, 1500);
+  });
+
+  // Arquivos na nuvem: mostra os campos da forma de conexão escolhida
+  document.querySelectorAll('[data-auth-mode]').forEach(function (sel) {
+    var apply = function () {
+      document.querySelectorAll('[data-mode]').forEach(function (el) { el.hidden = el.getAttribute('data-mode') !== sel.value; });
+    };
+    sel.addEventListener('change', apply);
+  });
 })();

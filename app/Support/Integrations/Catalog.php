@@ -76,8 +76,9 @@ class Catalog
             'title' => 'Arquivos na nuvem',
             'icon' => 'cloud',
             'group' => 'Documentos',
-            'status' => 'breve',
-            'description' => 'Pasta de cada processo e cliente vinculada ao armazenamento do escritório.',
+            'status' => 'disponivel',
+            'route' => 'cloud.settings',
+            'description' => 'Pasta de cada processo e cliente no Google Drive ou OneDrive do escritório, criada automaticamente, com envio e consulta dos arquivos pela ficha. Documentos recebidos pelo WhatsApp vão para a pasta do cliente.',
             'tags' => ['Google Drive', 'OneDrive'],
         ],
     ];

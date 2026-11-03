@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Support\Cloud\CloudEvents;
 use App\Support\Integrations\ModelEvents;
 use Carbon\Carbon;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -33,5 +34,8 @@ class AppServiceProvider extends ServiceProvider
 
         // Webhooks: liga os acontecimentos do sistema aos eventos enviados.
         ModelEvents::register();
+
+        // Arquivos na nuvem: pastas automáticas de clientes e processos.
+        CloudEvents::register();
     }
 }

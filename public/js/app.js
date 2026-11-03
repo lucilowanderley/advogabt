@@ -403,3 +403,93 @@
     });
   });
 })();
+
+// Assinatura digital: signatários, origem do documento e opções por plataforma.
+(function () {
+  var form = document.querySelector('[data-signature-form]');
+  if (!form) return;
+  var list = form.querySelector('[data-signer-list]');
+  var tpl = form.querySelector('[data-signer-template]');
+  var masks = function (root) {
+    root.querySelectorAll('[data-mask="phone"]').forEach(function (i) {
+      i.addEventListener('input', function () {
+        var d = i.value.replace(/\D/g, '').slice(0, 11);
+        i.value = d.length > 10 ? d.replace(/^(\d{2})(\d{5})(\d{0,4}).*/, '($1) $2-$3') : d.replace(/^(\d{2})(\d{4})(\d{0,4}).*/, '($1) $2-$3');
+      });
+    });
+  };
+  form.querySelector('[data-signer-add]').addEventListener('click', function () {
+    var i = parseInt(list.getAttribute('data-next') || '0', 10);
+    list.setAttribute('data-next', i + 1);
+    var wrap = document.createElement('div');
+    wrap.innerHTML = tpl.innerHTML.replace(/__i__/g, i);
+    var row = wrap.firstElementChild;
+    list.appendChild(row);
+    masks(row);
+    var first = row.querySelector('input');
+    if (first) first.focus();
+  });
+  list.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-signer-remove]');
+    if (btn) btn.closest('[data-signer-row]').remove();
+  });
+
+  var syncSource = function () {
+    var checked = form.querySelector('[data-source-toggle]:checked');
+    var v = checked ? checked.value : 'texto';
+    form.querySelectorAll('[data-source]').forEach(function (el) {
+      var on = el.getAttribute('data-source') === v;
+      el.hidden = !on;
+      el.querySelectorAll('textarea, input').forEach(function (f) { f.disabled = !on; });
+    });
+  };
+  var syncProvider = function () {
+    var checked = form.querySelector('[data-provider-choice]:checked');
+    var v = checked ? checked.value : '';
+    form.querySelectorAll('[data-provider-only]').forEach(function (el) {
+      el.hidden = el.getAttribute('data-provider-only').split(' ').indexOf(v) === -1;
+    });
+    var label = form.querySelector('[data-submit-label]');
+    if (label) label.textContent = v === 'manual' ? 'Gerar PDF para assinar' : 'Enviar para assinatura';
+  };
+  form.querySelectorAll('[data-source-toggle]').forEach(function (r) { r.addEventListener('change', syncSource); });
+  form.querySelectorAll('[data-provider-choice]').forEach(function (r) { r.addEventListener('change', syncProvider); });
+  syncSource();
+  syncProvider();
+})();
+
+// Assinatura digital (configuração): carrega os cofres da D4Sign.
+(function () {
+  var btn = document.querySelector('[data-load-safes]');
+  if (!btn) return;
+  var form = btn.closest('form');
+  var csrf = document.querySelector('meta[name="csrf-token"]');
+  btn.addEventListener('click', function () {
+    var out = form.querySelector('[data-safes-status]');
+    var sel = form.querySelector('[name="safe_uuid"]');
+    var body = new FormData();
+    ['environment', 'api_token', 'crypt_key'].forEach(function (n) {
+      var f = form.querySelector('[name="' + n + '"]');
+      if (f && f.value) body.append(n, f.value);
+    });
+    btn.disabled = true;
+    out.textContent = 'Carregando...';
+    fetch(btn.getAttribute('data-load-safes'), { method: 'POST', body: body, headers: { 'X-CSRF-TOKEN': csrf ? csrf.content : '', 'Accept': 'application/json' } })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.message || 'Falha ao carregar.'); return j; }); })
+      .then(function (j) {
+        var current = sel.value;
+        sel.innerHTML = '<option value="">— Escolha o cofre —</option>';
+        j.safes.forEach(function (s) {
+          var o = document.createElement('option');
+          o.value = s.uuid; o.textContent = s.name; o.selected = s.uuid === current;
+          sel.appendChild(o);
+        });
+        out.textContent = j.safes.length ? j.safes.length + ' cofre(s) encontrado(s). Escolha um e salve.' : 'A conta não tem cofres. Crie um no painel da D4Sign.';
+      })
+      .catch(function (e) { out.textContent = e.message; })
+      .then(function () { btn.disabled = false; });
+  });
+  var sel = form.querySelector('[name="safe_uuid"]');
+  var name = form.querySelector('[name="safe_name"]');
+  if (sel && name) sel.addEventListener('change', function () { name.value = sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : ''; });
+})();

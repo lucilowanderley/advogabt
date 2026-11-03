@@ -52,8 +52,11 @@ class Catalog
             'title' => 'Assinatura digital',
             'icon' => 'pen',
             'group' => 'Documentos',
-            'status' => 'breve',
-            'description' => 'Envio de contratos e procurações gerados pelos Modelos para assinatura eletrônica.',
+            'status' => 'disponivel',
+            'route' => 'signatures.index',
+            'admin_route' => 'signatures.settings',
+            'everyone' => true,
+            'description' => 'Envio de contratos e procurações gerados pelos Modelos para assinatura eletrônica, com acompanhamento de quem já assinou e o PDF assinado guardado na ficha (e na pasta da nuvem).',
             'tags' => ['ClickSign', 'D4Sign', 'ICP-Brasil'],
         ],
         'financeiro' => [

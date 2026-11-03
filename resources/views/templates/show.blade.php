@@ -27,6 +27,10 @@
             </select>
         </x-field>
         <div class="field col-2"><label>&nbsp;</label><button class="btn btn-primary" style="width: 100%">Gerar</button></div>
+        <input type="hidden" name="modelo" value="{{ $template->id }}">
+        <div class="col-12 row" style="justify-content: flex-end">
+            <button class="btn btn-sm" formaction="{{ route('signatures.create') }}" formtarget="_self"><x-icon name="pen" class="sm" /> Enviar para assinatura</button>
+        </div>
     </form>
 </div>
 

@@ -47,7 +47,10 @@
                         @foreach ($item['tags'] as $tag)<span class="tag">{{ $tag }}</span>@endforeach
                     </div>
                     @if ($link)
-                        <a class="btn btn-sm" href="{{ $link }}">{{ $key === 'whatsapp' ? 'Abrir' : ($key === 'agenda' && ! auth()->user()->isAdmin() ? 'Sincronizar minha agenda' : 'Configurar') }} <x-icon name="chevron-right" class="sm" /></a>
+                        <div class="row wrap" style="gap: 6px">
+                            <a class="btn btn-sm" href="{{ $link }}">{{ match (true) { $key === 'whatsapp' => 'Abrir', $key === 'assinatura' => 'Documentos enviados', $key === 'agenda' && ! auth()->user()->isAdmin() => 'Sincronizar minha agenda', default => 'Configurar' } }} <x-icon name="chevron-right" class="sm" /></a>
+                            @if (! empty($item['admin_route']) && auth()->user()->isAdmin())<a class="btn btn-sm btn-ghost" href="{{ route($item['admin_route']) }}">Configurar</a>@endif
+                        </div>
                     @elseif ($item['status'] === 'disponivel')
                         <span class="small faint">Peça a um administrador para configurar.</span>
                     @endif

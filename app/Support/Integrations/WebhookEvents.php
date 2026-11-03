@@ -17,6 +17,8 @@ class WebhookEvents
         'contato.etapa_alterada' => ['label' => 'Etapa do CRM alterada', 'group' => 'Contatos e CRM', 'description' => 'O contato mudou de etapa no funil (ex.: proposta → cliente).'],
         'lancamento.criado' => ['label' => 'Novo lançamento financeiro', 'group' => 'Financeiro', 'description' => 'Uma receita ou despesa foi lançada.'],
         'pagamento.recebido' => ['label' => 'Pagamento recebido', 'group' => 'Financeiro', 'description' => 'Uma receita foi baixada como paga.'],
+        'assinatura.concluida' => ['label' => 'Documento assinado', 'group' => 'Assinatura digital', 'description' => 'Todos os signatários assinaram um contrato, procuração ou outro documento enviado para assinatura.'],
+        'assinatura.recusada' => ['label' => 'Assinatura recusada', 'group' => 'Assinatura digital', 'description' => 'Um signatário recusou o documento na plataforma de assinatura.'],
         'whatsapp.mensagem_recebida' => ['label' => 'Mensagem no WhatsApp', 'group' => 'WhatsApp', 'description' => 'Um cliente ou interessado mandou mensagem para o WhatsApp do escritório.'],
         'whatsapp.atendimento_humano' => ['label' => 'Pedido de atendente', 'group' => 'WhatsApp', 'description' => 'Alguém pediu para falar com a equipe no WhatsApp.'],
     ];

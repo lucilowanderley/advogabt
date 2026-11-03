@@ -56,7 +56,7 @@ class IntegrationsTest extends TestCase
         foreach (['/integracoes', '/integracoes/api', '/integracoes/tokens', '/integracoes/webhooks', '/integracoes/webhooks/novo', "/integracoes/webhooks/{$hook->id}", "/integracoes/webhooks/{$hook->id}/editar"] as $url) {
             $this->get($url)->assertOk();
         }
-        $this->get('/integracoes')->assertSee('Tribunais')->assertSee('Assinatura digital')->assertSee('WhatsApp e autoatendimento')->assertSee('Breve');
+        $this->get('/integracoes')->assertSee('Tribunais')->assertSee('Assinatura digital')->assertSee('WhatsApp e autoatendimento')->assertSee('Cobrança e notas fiscais')->assertDontSee('Em breve');
 
         $user = User::where('role', '!=', 'admin')->first();
         $this->actingAs($user)->get('/integracoes')->assertOk();

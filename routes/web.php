@@ -4,6 +4,8 @@ use App\Http\Controllers\AgendaEmailController;
 use App\Http\Controllers\AiProviderController;
 use App\Http\Controllers\AssistantController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\BillingController;
+use App\Http\Controllers\BillingSettingsController;
 use App\Http\Controllers\CloudFileController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\CourtController;
@@ -59,6 +61,32 @@ Route::middleware('auth')->group(function () {
 
     Route::patch('/financeiro/{entry}/baixa', [FinancialEntryController::class, 'togglePaid'])->name('finance.toggle');
     Route::resource('financeiro', FinancialEntryController::class)->parameters(['financeiro' => 'entry'])->except('show')->names('finance');
+
+    // Cobrança e notas fiscais: boletos/Pix e NFS-e dos lançamentos (equipe) e contas no Asaas/Banco Inter (administradores).
+    Route::controller(BillingController::class)->prefix('cobrancas')->name('billing.')->group(function () {
+        Route::get('/', 'index')->name('index');
+        Route::get('/nova', 'create')->name('create');
+        Route::post('/', 'store')->name('store')->middleware('throttle:30,1');
+        Route::get('/{charge}', 'show')->whereNumber('charge')->name('show');
+        Route::post('/{charge}/atualizar', 'refresh')->whereNumber('charge')->name('refresh')->middleware('throttle:30,1');
+        Route::post('/{charge}/cancelar', 'cancel')->whereNumber('charge')->name('cancel')->middleware('throttle:20,1');
+        Route::get('/{charge}/boleto', 'pdf')->whereNumber('charge')->name('pdf')->middleware('throttle:30,1');
+        Route::post('/retorno', 'importReturn')->name('return')->middleware('throttle:10,1');
+        Route::get('/notas', 'invoices')->name('invoices');
+        Route::post('/notas', 'storeInvoice')->name('invoices.store')->middleware('throttle:20,1');
+        Route::post('/notas/{invoice}/atualizar', 'refreshInvoice')->whereNumber('invoice')->name('invoices.refresh')->middleware('throttle:30,1');
+        Route::post('/notas/{invoice}/cancelar', 'cancelInvoice')->whereNumber('invoice')->name('invoices.cancel')->middleware('throttle:10,1');
+    });
+    Route::middleware('can:admin')->controller(BillingSettingsController::class)->prefix('integracoes/cobranca')->name('billing.')->group(function () {
+        Route::get('/', 'settings')->name('settings');
+        Route::post('/nfse', 'saveNfse')->name('nfse.save');
+        Route::post('/nfse/servicos', 'services')->name('nfse.services')->middleware('throttle:20,1');
+        Route::post('/nfse/testar', 'testNfse')->name('nfse.test')->middleware('throttle:20,1');
+        Route::post('/inter/aviso', 'registerWebhook')->name('webhook.register')->middleware('throttle:10,1');
+        Route::post('/{driver}', 'saveProvider')->where('driver', 'asaas|inter|bb|itau|bradesco|santander|sicoob|sicredi|caixa')->name('providers.save');
+        Route::post('/{driver}/testar', 'testProvider')->where('driver', 'asaas|inter|bb|itau|bradesco|santander|sicoob|sicredi|caixa')->name('providers.test')->middleware('throttle:20,1');
+        Route::delete('/{driver}', 'disconnect')->where('driver', 'asaas|inter|bb|itau|bradesco|santander|sicoob|sicredi|caixa')->name('providers.destroy');
+    });
 
     Route::get('/modelos/{template}/gerar', [DocumentTemplateController::class, 'generate'])->name('templates.generate');
     Route::resource('modelos', DocumentTemplateController::class)->parameters(['modelos' => 'template'])->names('templates');

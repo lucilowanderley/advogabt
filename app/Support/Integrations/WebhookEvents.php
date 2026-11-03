@@ -17,6 +17,8 @@ class WebhookEvents
         'contato.etapa_alterada' => ['label' => 'Etapa do CRM alterada', 'group' => 'Contatos e CRM', 'description' => 'O contato mudou de etapa no funil (ex.: proposta → cliente).'],
         'lancamento.criado' => ['label' => 'Novo lançamento financeiro', 'group' => 'Financeiro', 'description' => 'Uma receita ou despesa foi lançada.'],
         'pagamento.recebido' => ['label' => 'Pagamento recebido', 'group' => 'Financeiro', 'description' => 'Uma receita foi baixada como paga.'],
+        'cobranca.vencida' => ['label' => 'Cobrança vencida', 'group' => 'Financeiro', 'description' => 'Um boleto/Pix gerado pelo sistema venceu sem pagamento.'],
+        'nota_fiscal.emitida' => ['label' => 'NFS-e emitida', 'group' => 'Financeiro', 'description' => 'A prefeitura autorizou uma nota fiscal de serviço emitida pelo sistema.'],
         'publicacao.recebida' => ['label' => 'Nova publicação (DJEN)', 'group' => 'Processos', 'description' => 'Uma intimação ou publicação de uma OAB do escritório foi capturada no Diário de Justiça Eletrônico Nacional. Traz o processo vinculado e o prazo criado, se houver.'],
         'assinatura.concluida' => ['label' => 'Documento assinado', 'group' => 'Assinatura digital', 'description' => 'Todos os signatários assinaram um contrato, procuração ou outro documento enviado para assinatura.'],
         'assinatura.recusada' => ['label' => 'Assinatura recusada', 'group' => 'Assinatura digital', 'description' => 'Um signatário recusou o documento na plataforma de assinatura.'],

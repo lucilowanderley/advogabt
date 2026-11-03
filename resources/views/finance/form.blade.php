@@ -64,4 +64,8 @@
         </div>
     </div>
 </form>
+
+@if ($entry->exists && $entry->type === 'receita')
+    @include('billing._entry', ['entry' => $entry])
+@endif
 @endsection

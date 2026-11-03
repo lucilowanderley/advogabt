@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BillingProvider;
 use App\Models\Contact;
 use App\Models\FinancialEntry;
 use App\Models\LegalCase;
@@ -41,7 +42,7 @@ class FinancialEntryController extends Controller
         $summary['previsto'] = $summary['receitas'] - $summary['despesas'];
 
         $entries = (clone $monthQuery)
-            ->with(['contact', 'legalCase', 'partner'])
+            ->with(['contact', 'legalCase', 'partner', 'currentCharge'])
             ->when($type, fn ($q) => $q->where('type', $type))
             ->when($request->query('categoria'), fn ($q, $c) => $q->where('category', $c))
             ->when($situation === 'pago', fn ($q) => $q->paid())
@@ -54,7 +55,9 @@ class FinancialEntryController extends Controller
         $byCategory = (clone $monthQuery)->where('type', 'receita')
             ->selectRaw('category, sum(amount) as total')->groupBy('category')->orderByDesc('total')->get();
 
-        return view('finance.index', compact('entries', 'summary', 'month', 'byCategory'));
+        $canCharge = BillingProvider::usable()->isNotEmpty();
+
+        return view('finance.index', compact('entries', 'summary', 'month', 'byCategory', 'canCharge'));
     }
 
     public function create(Request $request): View

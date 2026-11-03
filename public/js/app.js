@@ -493,3 +493,18 @@
   var name = form.querySelector('[name="safe_name"]');
   if (sel && name) sel.addEventListener('change', function () { name.value = sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : ''; });
 })();
+
+// Cobrança: mostra só as formas de pagamento que a plataforma escolhida oferece
+(function () {
+  var provider = document.querySelector('[data-billing-provider]');
+  var method = document.querySelector('[data-billing-method]');
+  if (!provider || !method) return;
+  var sync = function () {
+    var opt = provider.selectedOptions[0];
+    var allowed = (opt ? opt.getAttribute('data-methods') : '').split(',');
+    Array.prototype.forEach.call(method.options, function (o) { o.hidden = o.disabled = allowed.indexOf(o.value) === -1; });
+    if (method.selectedOptions[0] && method.selectedOptions[0].disabled) method.value = allowed[0];
+  };
+  provider.addEventListener('change', sync);
+  sync();
+})();

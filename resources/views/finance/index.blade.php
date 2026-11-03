@@ -68,9 +68,15 @@
                             <span class="badge {{ $s === 'pago' ? 'green' : ($s === 'atrasado' ? 'red' : 'orange') }}">
                                 {{ $s === 'pago' ? ($entry->type === 'receita' ? 'Recebido' : 'Pago').' '.$entry->paid_at->format('d/m') : ($s === 'atrasado' ? 'Atrasado' : 'Em aberto') }}
                             </span>
+                            @if ($entry->currentCharge)
+                                <a class="badge {{ $entry->currentCharge->status_badge }}" href="{{ route('billing.show', $entry->currentCharge) }}" title="{{ $entry->currentCharge->provider_label }}: {{ $entry->currentCharge->status_label }}"><x-icon name="dollar" class="sm" /> {{ $entry->currentCharge->isOpen() ? 'Boleto/Pix' : $entry->currentCharge->status_label }}</a>
+                            @endif
                         </td>
                         <td>
                             <div class="actions">
+                                @if ($canCharge && $entry->type === 'receita' && ! $entry->paid_at && $entry->contact_id && ! $entry->currentCharge?->isOpen())
+                                    <a class="btn btn-xs" href="{{ route('billing.create', ['lancamento' => $entry->id]) }}" title="Gerar boleto/Pix"><x-icon name="dollar" class="sm" /> <span class="hide-sm">Cobrar</span></a>
+                                @endif
                                 <form method="post" action="{{ route('finance.toggle', $entry) }}">
                                     @csrf @method('patch')
                                     <button class="btn btn-xs {{ $entry->paid_at ? 'btn-ghost' : '' }}" title="{{ $entry->paid_at ? 'Estornar baixa' : 'Dar baixa' }}">

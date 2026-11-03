@@ -48,7 +48,7 @@
                     @foreach ($case->movements as $m)
                         <li>
                             <div class="row between">
-                                <span class="when">{{ $m->date->format('d/m/Y') }} · {{ $m->user?->name ?? 'Sistema' }}</span>
+                                <span class="when">{{ $m->date->format('d/m/Y') }} · {{ $m->user?->name ?? 'Sistema' }}@if (! empty(\App\Models\CaseMovement::SOURCES[$m->source ?? 'manual'])) <span class="badge {{ $m->source === 'djen' ? 'purple' : 'blue' }}">{{ \App\Models\CaseMovement::SOURCES[$m->source] }}</span>@endif</span>
                                 <form method="post" action="{{ route('cases.movements.destroy', [$case, $m]) }}" data-confirm="Remover este andamento?">@csrf @method('delete')<button class="btn btn-xs btn-ghost" title="Remover"><x-icon name="x" class="sm" /></button></form>
                             </div>
                             <div class="pre">{{ $m->description }}</div>
@@ -94,6 +94,8 @@
     </div>
 
     <div class="stack">
+        @include('courts._case_card', ['case' => $case])
+
         <div class="card">
             <div class="card-head"><h3>Informações</h3></div>
             <div class="card-body">

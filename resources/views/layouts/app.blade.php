@@ -6,12 +6,14 @@
 <body>
 @php
     $waWaiting = \App\Models\WhatsappConversation::where('unread', '>', 0)->count();
+    $newPublications = \App\Models\CourtPublication::where('status', 'nova')->count();
     $nav = [
         ['route' => 'dashboard', 'match' => 'dashboard', 'icon' => 'home', 'label' => 'Meu painel'],
         ['route' => 'events.index', 'match' => 'events.*', 'icon' => 'calendar', 'label' => 'Agenda'],
         ['route' => 'tasks.index', 'match' => 'tasks.*', 'icon' => 'check-square', 'label' => 'Tarefas'],
         ['route' => 'contacts.index', 'match' => 'contacts.*', 'icon' => 'users', 'label' => 'Contatos e CRM'],
         ['route' => 'cases.index', 'match' => 'cases.*', 'icon' => 'scale', 'label' => 'Processos'],
+        ['route' => 'publications.index', 'match' => 'publications.*', 'icon' => 'gavel', 'label' => 'Publicações', 'badge' => $newPublications, 'badge_title' => 'Intimações e publicações novas'],
         ['route' => 'partners.index', 'match' => 'partners.*', 'icon' => 'handshake', 'label' => 'Parceiros'],
         ['route' => 'finance.index', 'match' => 'finance.*', 'icon' => 'wallet', 'label' => 'Financeiro'],
         ['route' => 'templates.index', 'match' => 'templates.*', 'icon' => 'file-text', 'label' => 'Modelos'],
@@ -36,7 +38,7 @@
             @foreach ($nav as $item)
                 <a href="{{ route($item['route']) }}" class="{{ request()->routeIs($item['match']) ? 'active' : '' }}">
                     <x-icon :name="$item['icon']" /> {{ $item['label'] }}
-                    @if (! empty($item['badge']))<span class="soon nav-badge" title="Conversas com mensagens não lidas">{{ $item['badge'] }}</span>@endif
+                    @if (! empty($item['badge']))<span class="soon nav-badge" title="{{ $item['badge_title'] ?? 'Conversas com mensagens não lidas' }}">{{ $item['badge'] }}</span>@endif
                 </a>
             @endforeach
 

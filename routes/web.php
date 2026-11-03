@@ -8,6 +8,7 @@ use App\Http\Controllers\BillingController;
 use App\Http\Controllers\BillingSettingsController;
 use App\Http\Controllers\CloudFileController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\CourtController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentTemplateController;
 use App\Http\Controllers\EventController;
@@ -179,6 +180,28 @@ Route::middleware('auth')->group(function () {
         Route::post('/{driver}', 'saveProvider')->where('driver', 'clicksign|d4sign')->name('providers.save');
         Route::post('/{driver}/testar', 'testProvider')->where('driver', 'clicksign|d4sign')->name('providers.test')->middleware('throttle:20,1');
         Route::delete('/{driver}', 'disconnect')->where('driver', 'clicksign|d4sign')->name('providers.destroy');
+    });
+
+    // Tribunais: publicações do DJEN (equipe), andamentos pelo Datajud e configuração (administradores).
+    Route::controller(CourtController::class)->prefix('publicacoes')->name('publications.')->group(function () {
+        Route::get('/', 'publications')->name('index');
+        Route::get('/{publication}', 'show')->whereNumber('publication')->name('show');
+        Route::get('/{publication}/vencimento', 'suggest')->whereNumber('publication')->name('suggest');
+        Route::post('/{publication}/prazo', 'createDeadline')->whereNumber('publication')->name('deadline');
+        Route::post('/{publication}/vincular', 'link')->whereNumber('publication')->name('link');
+        Route::post('/{publication}/situacao', 'setStatus')->whereNumber('publication')->name('status');
+    });
+    Route::post('/processos/{legal_case}/tribunal/atualizar', [CourtController::class, 'refreshCase'])->name('cases.court.refresh')->middleware('throttle:20,1');
+    Route::post('/processos/{legal_case}/tribunal/acompanhar', [CourtController::class, 'toggleCase'])->name('cases.court.toggle');
+    Route::middleware('can:admin')->controller(CourtController::class)->prefix('integracoes/tribunais')->name('courts.')->group(function () {
+        Route::get('/', 'settings')->name('settings');
+        Route::post('/', 'save')->name('save');
+        Route::post('/buscar', 'runNow')->name('run')->middleware('throttle:5,1');
+        Route::post('/testar-datajud', 'testDatajud')->name('datajud.test')->middleware('throttle:20,1');
+        Route::post('/oabs', 'storeLawyer')->name('lawyers.store');
+        Route::post('/oabs/importar', 'importLawyers')->name('lawyers.import');
+        Route::post('/oabs/{lawyer}/alternar', 'toggleLawyer')->name('lawyers.toggle');
+        Route::delete('/oabs/{lawyer}', 'destroyLawyer')->name('lawyers.destroy');
     });
 
     Route::controller(WhatsappController::class)->prefix('whatsapp')->name('whatsapp.')->group(function () {

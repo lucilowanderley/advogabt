@@ -8,7 +8,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /** Andamento processual. */
 class CaseMovement extends Model
 {
-    protected $fillable = ['legal_case_id', 'user_id', 'date', 'description'];
+    public const SOURCES = [
+        'manual' => null,
+        'datajud' => 'Datajud',
+        'djen' => 'DJEN',
+    ];
+
+    protected $fillable = ['legal_case_id', 'user_id', 'date', 'description', 'source', 'external_id'];
 
     protected function casts(): array
     {

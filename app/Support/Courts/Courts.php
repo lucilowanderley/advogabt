@@ -9,10 +9,14 @@ use App\Models\CourtSetting;
 use App\Models\LegalCase;
 use App\Models\Task;
 use App\Models\User;
+use App\Models\WhatsappChannel;
+use App\Support\Integrations\ModelEvents;
 use App\Support\Integrations\Webhooks;
+use App\Support\Whatsapp\WhatsappBot;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -181,19 +185,33 @@ class Courts
         uasort($new, fn ($a, $b) => $a['date'] <=> $b['date']);
         $mute = $firstImport || ! $notify;
         $wasMuted = Webhooks::$muted;
+        $wasHeld = ModelEvents::$holdWhatsapp;
         Webhooks::$muted = $wasMuted || $mute;
+        ModelEvents::$holdWhatsapp = true; // um aviso só ao cliente, com todos os andamentos novos
+        $created = collect();
         try {
             foreach ($new as $id => $m) {
-                CaseMovement::create([
+                $created->push(CaseMovement::create([
                     'legal_case_id' => $case->id,
                     'date' => $m['date']->toDateString(),
                     'description' => Str::limit($m['description'], 5000),
                     'source' => 'datajud',
                     'external_id' => $id,
-                ]);
+                ]));
             }
         } finally {
             Webhooks::$muted = $wasMuted;
+            ModelEvents::$holdWhatsapp = $wasHeld;
+        }
+
+        if (! Webhooks::$muted && ! $mute && $created->isNotEmpty() && WhatsappChannel::active()->where('notify_movements', true)->exists()) {
+            \Illuminate\Support\defer(function () use ($case, $created) {
+                try {
+                    app(WhatsappBot::class)->notifyMovements($case->fresh(['client']) ?? $case, $created);
+                } catch (\Throwable $e) {
+                    Log::warning('Aviso de andamentos pelo WhatsApp falhou: '.$e->getMessage());
+                }
+            });
         }
 
         return count($new);

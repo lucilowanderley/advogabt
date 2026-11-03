@@ -16,6 +16,9 @@ use Illuminate\Support\Facades\Log;
 /** Liga os acontecimentos do sistema aos eventos de webhook. */
 class ModelEvents
 {
+    /** Segura o aviso por WhatsApp de cada andamento (a importação do Datajud manda um aviso só, no fim). */
+    public static bool $holdWhatsapp = false;
+
     public static function register(): void
     {
         Webhook::saved(fn () => Webhooks::flush());
@@ -39,7 +42,7 @@ class ModelEvents
             Webhooks::dispatch('andamento.criado', fn () => ApiData::movement($m->fresh(['legalCase.client', 'user']) ?? $m));
 
             // WhatsApp: avisa o cliente do novo andamento, se o canal estiver configurado para isso.
-            if (! Webhooks::$muted && WhatsappChannel::active()->where('notify_movements', true)->exists()) {
+            if (! Webhooks::$muted && ! self::$holdWhatsapp && WhatsappChannel::active()->where('notify_movements', true)->exists()) {
                 \Illuminate\Support\defer(function () use ($m) {
                     try {
                         app(WhatsappBot::class)->notifyMovement($m->fresh(['legalCase.client']) ?? $m);

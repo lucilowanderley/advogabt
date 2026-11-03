@@ -19,6 +19,7 @@ use App\Support\Cloud\CloudEvents;
 use App\Support\Format;
 use App\Support\Integrations\Webhooks;
 use App\Support\Options;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -457,11 +458,23 @@ class WhatsappBot
     /** Avisa o cliente (se o canal permitir) quando um andamento é registrado no processo dele. */
     public function notifyMovement(CaseMovement $movement): ?WhatsappMessage
     {
-        $channel = WhatsappChannel::active()->where('notify_movements', true)->orderBy('id')->first();
         $case = $movement->legalCase;
-        $contact = $case?->client;
+
+        return $case ? $this->notifyMovements($case, collect([$movement])) : null;
+    }
+
+    /**
+     * Um aviso só com os andamentos novos do processo (ex.: vários movimentos do Datajud de uma vez).
+     *
+     * @param  Collection<int, CaseMovement>  $movements
+     */
+    public function notifyMovements(LegalCase $case, $movements): ?WhatsappMessage
+    {
+        $movements = collect($movements)->sortBy('date')->values();
+        $channel = WhatsappChannel::active()->where('notify_movements', true)->orderBy('id')->first();
+        $contact = $case->client;
         $phone = preg_replace('/\D/', '', (string) ($contact?->whatsapp ?: $contact?->phone));
-        if (! $channel || ! $contact || strlen($phone) < 10) {
+        if (! $channel || ! $contact || $movements->isEmpty() || strlen($phone) < 10) {
             return null;
         }
         if (strlen($phone) <= 11) {
@@ -471,10 +484,20 @@ class WhatsappBot
         $c->setRelation('contact', $contact);
 
         $first = Str::of($contact->name)->explode(' ')->first();
-        $fallback = "Olá, {$first}! Há uma novidade no seu processo ".($case->number ?: $case->title).' ('.$movement->date->format('d/m/Y').'): '
-            .Str::limit($movement->description, 300)."\n\nSe tiver dúvidas, é só responder esta mensagem.";
-        $text = $this->ai($channel, $c, $this->clientContext($c, $case),
-            "Escreva uma mensagem curta de WhatsApp para {$first} avisando, em linguagem simples, sobre este novo andamento do processo e o que ele significa, sem prever resultado: \"{$movement->description}\". Termine dizendo que pode responder esta mensagem em caso de dúvida.") ?? $fallback;
+        $label = $case->number ?: $case->title;
+        $list = $movements->take(10)->map(fn (CaseMovement $m) => $m->date->format('d/m/Y').': '.Str::limit($m->description, 200));
+        if ($movements->count() === 1) {
+            $m = $movements->first();
+            $fallback = "Olá, {$first}! Há uma novidade no seu processo {$label} (".$m->date->format('d/m/Y').'): '
+                .Str::limit($m->description, 300)."\n\nSe tiver dúvidas, é só responder esta mensagem.";
+            $prompt = "Escreva uma mensagem curta de WhatsApp para {$first} avisando, em linguagem simples, sobre este novo andamento do processo e o que ele significa, sem prever resultado: \"{$m->description}\". Termine dizendo que pode responder esta mensagem em caso de dúvida.";
+        } else {
+            $fallback = "Olá, {$first}! Há {$movements->count()} novidades no seu processo {$label}:\n- ".$list->implode("\n- ")
+                .($movements->count() > 10 ? "\n- ..." : '')."\n\nSe tiver dúvidas, é só responder esta mensagem.";
+            $prompt = "Escreva UMA mensagem curta de WhatsApp para {$first} resumindo, em linguagem simples, estes novos andamentos do processo, destacando só o que importa para o cliente e sem prever resultado:\n- ".$list->implode("\n- ")
+                ."\nTermine dizendo que pode responder esta mensagem em caso de dúvida.";
+        }
+        $text = $this->ai($channel, $c, $this->clientContext($c, $case), $prompt) ?? $fallback;
 
         return $this->send($c, $text, 'sistema');
     }

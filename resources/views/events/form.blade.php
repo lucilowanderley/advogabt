@@ -1,12 +1,18 @@
 @extends('layouts.app', ['title' => $event->exists ? 'Editar compromisso' : 'Novo compromisso'])
-@php use App\Support\Options; @endphp
+@php use App\Support\Options; use App\Support\Agenda\CalendarLinks; @endphp
 
 @section('content')
 <div class="breadcrumb"><a href="{{ route('events.index') }}">Agenda</a> / {{ $event->exists ? 'Editar' : 'Novo' }}</div>
 <div class="page-head">
     <h1>{{ $event->exists ? 'Editar compromisso' : 'Novo compromisso' }}</h1>
     @if ($event->exists)
+        <div class="page-actions">
+        <span class="small faint">Levar para:</span>
+        <a class="btn btn-sm" target="_blank" rel="noopener" href="{{ CalendarLinks::google($event) }}" title="Adicionar ao Google Agenda"><x-icon name="calendar" class="sm" /> Google Agenda</a>
+        <a class="btn btn-sm" target="_blank" rel="noopener" href="{{ CalendarLinks::outlook($event) }}" title="Adicionar ao Outlook (Microsoft 365). Para Outlook.com pessoal, use o .ics"><x-icon name="calendar" class="sm" /> Outlook</a>
+        <a class="btn btn-sm" href="{{ route('events.ics', $event) }}" title="Baixar o arquivo .ics (Outlook, iPhone, Apple Calendar)"><x-icon name="download" class="sm" /> .ics</a>
         <form method="post" action="{{ route('events.destroy', $event) }}" data-confirm="Excluir este compromisso?">@csrf @method('delete')<button class="btn btn-danger"><x-icon name="trash" class="sm" /> Excluir</button></form>
+        </div>
     @endif
 </div>
 

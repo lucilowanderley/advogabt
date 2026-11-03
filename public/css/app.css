@@ -283,6 +283,7 @@ table.table { width: 100%; border-collapse: collapse; }
 .alert { padding: 11px 14px; border-radius: var(--radius-sm); margin-bottom: 16px; border: 1px solid; display: flex; gap: 10px; align-items: center; }
 .alert.success { background: rgba(52, 195, 143, .1); border-color: rgba(52, 195, 143, .3); color: var(--green); }
 .alert.error { background: rgba(240, 97, 109, .1); border-color: rgba(240, 97, 109, .3); color: var(--red); }
+.alert.warning { background: rgba(240, 173, 78, .1); border-color: rgba(240, 173, 78, .35); color: var(--orange, #f0ad4e); }
 .empty { padding: 32px 16px; text-align: center; color: var(--faint); }
 .empty svg { width: 34px; height: 34px; margin-bottom: 6px; opacity: .6; }
 

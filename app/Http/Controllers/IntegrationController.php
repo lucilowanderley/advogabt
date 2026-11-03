@@ -153,7 +153,7 @@ class IntegrationController extends Controller
         @set_time_limit(120);
         $result = Routine::run();
 
-        return back()->with('success', "Rotina executada: {$result['deadlines']} prazo(s) avisado(s), {$result['retried']} envio(s) repetido(s).");
+        return back()->with('success', "Rotina executada: {$result['deadlines']} prazo(s) avisado(s), {$result['retried']} envio(s) repetido(s), {$result['reminders']} lembrete(s) e {$result['digests']} resumo(s) por e-mail.");
     }
 
     private function validatedWebhook(Request $request): array

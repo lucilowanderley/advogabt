@@ -47,7 +47,7 @@
                         @foreach ($item['tags'] as $tag)<span class="tag">{{ $tag }}</span>@endforeach
                     </div>
                     @if ($link)
-                        <a class="btn btn-sm" href="{{ $link }}">{{ $key === 'whatsapp' ? 'Abrir' : 'Configurar' }} <x-icon name="chevron-right" class="sm" /></a>
+                        <a class="btn btn-sm" href="{{ $link }}">{{ $key === 'whatsapp' ? 'Abrir' : ($key === 'agenda' && ! auth()->user()->isAdmin() ? 'Sincronizar minha agenda' : 'Configurar') }} <x-icon name="chevron-right" class="sm" /></a>
                     @elseif ($item['status'] === 'disponivel')
                         <span class="small faint">Peça a um administrador para configurar.</span>
                     @endif

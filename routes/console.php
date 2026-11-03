@@ -25,13 +25,13 @@ Artisan::command('ai:certificados', function () {
     return 0;
 })->purpose('Importa os certificados raiz do Windows para as conexões HTTPS do Assistente IA');
 
-// Integrações: avisa prazos vencendo (webhook prazo.vencendo) e reenvia webhooks que falharam.
+// Integrações: avisa prazos vencendo (webhook prazo.vencendo), reenvia webhooks que falharam e envia os e-mails da agenda.
 Artisan::command('integracoes:rotina', function () {
     $result = Routine::run();
-    $this->info("Prazos avisados: {$result['deadlines']} · Webhooks reenviados: {$result['retried']}");
+    $this->info("Prazos avisados: {$result['deadlines']} · Webhooks reenviados: {$result['retried']} · Lembretes por e-mail: {$result['reminders']} · Resumos diários: {$result['digests']}");
 
     return 0;
-})->purpose('Envia os avisos de prazo vencendo e reenvia os webhooks que falharam');
+})->purpose('Envia os avisos de prazo vencendo, reenvia os webhooks que falharam e envia lembretes e resumos por e-mail');
 
 // Arquivos na nuvem: cria as pastas dos clientes e processos que ainda não têm.
 Artisan::command('arquivos:pastas {--limite=500}', function (CloudFolders $folders) {

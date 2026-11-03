@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Support\Agenda\AgendaMail;
 use App\Support\Cloud\CloudEvents;
 use App\Support\Integrations\ModelEvents;
 use Carbon\Carbon;
@@ -37,5 +38,8 @@ class AppServiceProvider extends ServiceProvider
 
         // Arquivos na nuvem: pastas automáticas de clientes e processos.
         CloudEvents::register();
+
+        // Agenda e e-mail: convites (.ics) quando um compromisso é marcado, alterado ou excluído.
+        AgendaMail::register();
     }
 }

@@ -137,6 +137,11 @@ class WhatsappClient
         foreach ($items as $data) {
             $key = $data['key'] ?? [];
             $jid = (string) ($key['remoteJid'] ?? '');
+            if (str_ends_with($jid, '@lid')) {
+                // WhatsApp com "LID" (id oculto): o número real vem em remoteJidAlt ou senderPn.
+                $jid = collect([$key['remoteJidAlt'] ?? null, $key['senderPn'] ?? null, $data['senderPn'] ?? null])
+                    ->first(fn ($v) => is_string($v) && str_ends_with($v, '@s.whatsapp.net')) ?? $jid;
+            }
             if (($key['fromMe'] ?? false) || ! str_ends_with($jid, '@s.whatsapp.net')) {
                 continue; // enviada por nós, grupo, status ou lista de transmissão
             }

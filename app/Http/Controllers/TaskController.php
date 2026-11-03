@@ -11,7 +11,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -78,7 +77,7 @@ class TaskController extends Controller
             'points' => 10,
             'legal_case_id' => $request->query('processo'),
             'contact_id' => $request->query('contato'),
-            'due_at' => $request->query('data') ? Carbon::parse($request->query('data'))->setTime(9, 0) : null,
+            'due_at' => $this->queryDate($request)?->setTime(9, 0),
         ]);
 
         return view('tasks.form', $this->formData($task) + ['selectedUsers' => [$request->user()->id]]);

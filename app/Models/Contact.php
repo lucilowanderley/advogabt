@@ -77,23 +77,50 @@ class Contact extends Model
     }
 
     /**
-     * Contatos cujo telefone ou WhatsApp termina nos mesmos 8 dígitos
-     * (ignora formatação, DDI e o 9º dígito), como chega do WhatsApp.
+     * Contatos com o mesmo telefone ou WhatsApp, como chega do WhatsApp: ignora formatação,
+     * o DDI 55 e o 9º dígito. Compara os 8 últimos dígitos e também o DDD quando os dois
+     * números têm DDD (assim o mesmo número em outra cidade não é confundido com o cliente).
      */
     public static function idsByPhone(?string $phone): Collection
     {
-        $digits = preg_replace('/\D/', '', (string) $phone);
-        if (strlen($digits) < 8) {
+        $target = self::phoneKey($phone);
+        if (! $target) {
             return collect();
         }
-        $tail = substr($digits, -8);
-        $ends = fn (?string $v) => str_ends_with(preg_replace('/\D/', '', (string) $v), $tail);
+        [$ddd, $tail] = $target;
+        $same = function (?string $value) use ($ddd, $tail): bool {
+            $key = self::phoneKey($value);
+
+            return $key !== null && $key[1] === $tail && ($ddd === null || $key[0] === null || $key[0] === $ddd);
+        };
 
         return static::query()
             ->where(fn (Builder $q) => $q->where('whatsapp', 'like', '%'.substr($tail, -4))->orWhere('phone', 'like', '%'.substr($tail, -4)))
             ->get(['id', 'phone', 'whatsapp'])
-            ->filter(fn (self $c) => $ends($c->whatsapp) || $ends($c->phone))
+            ->filter(fn (self $c) => $same($c->whatsapp) || $same($c->phone))
             ->pluck('id');
+    }
+
+    /**
+     * [DDD ou null, 8 últimos dígitos] de um telefone brasileiro.
+     *
+     * @return array{0: ?string, 1: string}|null
+     */
+    public static function phoneKey(?string $phone): ?array
+    {
+        $digits = preg_replace('/\D/', '', (string) $phone);
+        if (strlen($digits) >= 12 && str_starts_with($digits, '55')) {
+            $digits = substr($digits, 2); // DDI
+        }
+        if (strlen($digits) < 8) {
+            return null;
+        }
+        $rest = ltrim(substr($digits, 0, -8), '0'); // 0 da operadora / do DDD
+        if (strlen($rest) === 3 && str_ends_with($rest, '9')) {
+            $rest = substr($rest, 0, 2); // 9º dígito do celular
+        }
+
+        return [strlen($rest) === 2 ? $rest : null, substr($digits, -8)];
     }
 
     /** Contato pelo número de WhatsApp (prefere clientes). */
